@@ -543,6 +543,34 @@ async function runScenario() {
     return;
   }
 
+  if (testScenario === 'live_published') {
+    const dashText = mainEl.textContent;
+    assert(dashText.includes('Personas registradas'), 'Dashboard shows Personas registradas card');
+    assert(dashText.includes('72'), 'Dashboard shows 72 imported personas');
+    assert(idMap.get('data-updated-hint').textContent.includes('72 persona(s)'), 'Sidebar shows 72 personas loaded');
+
+    await nav('territorio');
+    const terrText = mainEl.textContent;
+    for (const loc of ['Osorno', 'Río Negro', 'San Pablo', 'Purranque']) {
+      assert(terrText.includes(loc), `Territorio includes ${loc}`);
+    }
+
+    await nav('personas');
+    const searchInput = mainEl.querySelector('#filter-q');
+    searchInput.value = 'Eduardo';
+    searchInput.dispatchEvent({ type: 'input' });
+    await flush(320);
+    assert(mainEl.textContent.includes('Eduardo Javier'), 'Personas search finds imported person from KML');
+
+    await nav('mapa');
+    const mapText = mainEl.textContent;
+    assert(mapText.includes('72 personas con marcador en el mapa'), 'Mapa loads all 72 person markers');
+    assert(!mapText.includes('NaN'), 'No NaN in live Mapa');
+
+    print('E2E_LIVE_PUBLISHED_OK');
+    return;
+  }
+
   throw new Error(`Unknown scenario: ${testScenario}`);
 }
 

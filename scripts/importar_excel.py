@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Integra archivos recibidos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md)
+"""Integra archivos recibidos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md, .kml, .kmz)
 desde datos/ hacia la base JSON estática en frontend/data/, priorizando
 siempre los archivos con fecha de entrega más reciente.
 
@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import html
 import json
 import pathlib
 import re
@@ -141,7 +142,7 @@ SEGUIMIENTO_TEMPLATE_HEADERS = [
     'Descripcion',
 ]
 
-SUPPORTED_DATA_EXTS = {'.xlsx', '.ods', '.csv', '.tsv', '.json', '.docx', '.odt', '.txt', '.md'}
+SUPPORTED_DATA_EXTS = {'.xlsx', '.ods', '.csv', '.tsv', '.json', '.docx', '.odt', '.txt', '.md', '.kml', '.kmz'}
 REVIEW_REQUIRED_EXTS = {'.pdf', '.png', '.jpg', '.jpeg', '.webp', '.heic', '.xls', '.doc', '.rtf'}
 
 KEY_ALIASES = {
@@ -794,6 +795,289 @@ def read_odt_sheets(path: pathlib.Path) -> list[tuple[str, list[list[str]]]]:
     return results
 
 
+def _point_in_polygon(lat: float, lng: float, ring: list[tuple[float, float]]) -> bool:
+    inside = False
+    n = len(ring)
+    j = n - 1
+    for i in range(n):
+        yi, xi = ring[i]
+        yj, xj = ring[j]
+        if ((yi > lat) != (yj > lat)) and (lng < (xj - xi) * (lat - yi) / ((yj - yi) or 1e-12) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _split_kml_person_name(raw_name: str) -> tuple[str, str, list[str]]:
+    clean = re.sub(r'^\s*\d+\s*[-.–:]\s*', '', str(raw_name or '')).strip()
+    extra_notes: list[str] = []
+
+    def _collect_paren(m: re.Match[str]) -> str:
+        inner = m.group(1).strip()
+        if inner:
+            extra_notes.append(inner)
+        return ''
+
+    clean = re.sub(r'\(([^)]+)\)', _collect_paren, clean).strip(' -')
+    clean = re.sub(r'\s{2,}', ' ', clean)
+    if not clean:
+        return '', '', extra_notes
+
+    # Nombres que son direcciones numéricas (ej. "Huechuraba 1621") o parejas ("Rut y Gustavo...") se mantienen completos en Nombre
+    if re.search(r'\by\b', clean, re.IGNORECASE) or re.search(r'\d', clean):
+        return clean, '', extra_notes
+
+    parts = clean.split()
+    if len(parts) == 1:
+        return parts[0], '', extra_notes
+    return parts[0], ' '.join(parts[1:]), extra_notes
+
+
+def _clean_kml_description(raw_desc: str) -> tuple[str, str, str]:
+    text = re.sub(r'<br\s*/?>', '\n', str(raw_desc or ''), flags=re.IGNORECASE)
+    text = re.sub(r'</p>', '\n', text, flags=re.IGNORECASE)
+    text = html.unescape(re.sub(r'<[^>]+>', '', text))
+    lines = [re.sub(r'\s+', ' ', ln).strip() for ln in text.splitlines()]
+    lines = [ln for ln in lines if ln]
+    if not lines:
+        return '', '', ''
+
+    ultima_visita = ''
+    direccion = ''
+    obs_parts: list[str] = []
+
+    for ln in lines:
+        m_fecha = re.search(r'(?:ultima\s+fecha|fecha\s+visita)\s*:\s*(.+)$', ln, re.IGNORECASE)
+        if m_fecha:
+            parsed_d = parse_date(m_fecha.group(1).strip())
+            if parsed_d:
+                ultima_visita = parsed_d
+            else:
+                obs_parts.append(ln)
+            continue
+
+        if ln.upper().startswith('NOTA:'):
+            obs_parts.append(ln)
+            continue
+
+        if not direccion:
+            # Si incluye número o calle o es frase corta sin exceder dirección típica, usar como dirección referencial
+            if len(ln) <= 75 and ',' not in ln:
+                direccion = ln
+            else:
+                obs_parts.append(ln)
+        else:
+            obs_parts.append(ln)
+
+    return direccion, ' · '.join(obs_parts), ultima_visita
+
+
+def _infer_kml_territory(
+    lat: float,
+    lng: float,
+    polys: list[tuple[str, list[tuple[float, float]]]],
+    text_hint: str,
+) -> tuple[str, str]:
+    hint_norm = norm_key(text_hint)
+    for poly_name, ring in polys:
+        if _point_in_polygon(lat, lng, ring):
+            if '-' in poly_name:
+                left, right = [part.strip() for part in poly_name.split('-', 1)]
+                loc = re.sub(r'\s*\([^)]*\)\s*', '', right).strip()
+                sec = re.sub(r'\s*\([^)]*\)\s*', '', left).strip()
+                return loc, sec
+            return re.sub(r'\s*\([^)]*\)\s*', '', poly_name).strip(), ''
+
+    if lat <= -40.86:
+        return 'Purranque', ''
+    if -40.86 < lat <= -40.70:
+        return 'Río Negro', 'Sector rural' if lng < -73.26 else ''
+    if -40.66 <= lat <= -40.48 and -73.25 <= lng <= -73.02:
+        sector = ''
+        if 'ovejeria' in hint_norm or (lat <= -40.582 and -73.152 <= lng <= -73.135):
+            sector = 'Ovejería'
+        return 'Osorno', sector
+    if -40.48 < lat <= -40.32 and lng <= -73.20:
+        return 'San Pablo', ''
+    return '', ''
+
+
+def _read_kml_raw_bytes(path: pathlib.Path) -> bytes | None:
+    ext = path.suffix.lower()
+    if ext == '.kml':
+        return path.read_bytes()
+    if ext == '.kmz':
+        with zipfile.ZipFile(path, 'r') as zf:
+            kml_names = [n for n in zf.namelist() if n.lower().endswith('.kml')]
+            if not kml_names:
+                return None
+            target = 'doc.kml' if 'doc.kml' in kml_names else kml_names[0]
+            return zf.read(target)
+    return None
+
+
+def _is_kml_network_link(path: pathlib.Path) -> bool:
+    raw = _read_kml_raw_bytes(path)
+    if not raw:
+        return False
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return False
+    has_net = any(_tag_name(el) == 'NetworkLink' for el in root.iter())
+    has_point_pm = any(
+        _tag_name(el) == 'Placemark' and any(_tag_name(c) == 'Point' for c in el.iter())
+        for el in root.iter()
+    )
+    return has_net and not has_point_pm
+
+
+def read_kml_bytes_to_sheets(raw: bytes, default_name: str = 'Personas') -> list[tuple[str, list[list[str]]]]:
+    """Extrae marcadores de puntos desde un archivo KML (Google My Maps / Google Earth)."""
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return []
+
+    doc_el = next((el for el in root.iter() if _tag_name(el) == 'Document'), root)
+
+    def _find_child(parent: ET.Element, tag: str) -> ET.Element | None:
+        return next((c for c in parent if _tag_name(c) == tag), None)
+
+    def _child_text(parent: ET.Element, tag: str) -> str:
+        ch = _find_child(parent, tag)
+        return ''.join(ch.itertext()).strip() if ch is not None else ''
+
+    # 1. Recolectar polígonos de límites territoriales si existen
+    boundary_polys: list[tuple[str, list[tuple[float, float]]]] = []
+    point_placemarks: list[tuple[str, ET.Element]] = []
+
+    folders = [c for c in doc_el if _tag_name(c) == 'Folder']
+    containers: list[tuple[str, ET.Element]] = (
+        [(_child_text(f, 'name') or default_name, f) for f in folders]
+        if folders
+        else [(default_name, doc_el)]
+    )
+
+    for folder_name, container in containers:
+        fn_norm = norm_key(folder_name)
+        for pm in container.iter():
+            if _tag_name(pm) != 'Placemark':
+                continue
+            pm_name = _child_text(pm, 'name')
+            has_point = any(_tag_name(el) == 'Point' for el in pm.iter())
+            has_poly = any(_tag_name(el) == 'Polygon' for el in pm.iter())
+
+            is_date_label = bool(re.fullmatch(r'\d{1,2}[-/]\d{1,2}(?:[-/]\d{2,4})?', pm_name.strip()))
+            is_boundary_folder = ('limite' in fn_norm or 'territorio' in fn_norm or 'congre' in fn_norm)
+            is_survey_folder = 'encuesta' in fn_norm
+            if has_poly and not is_survey_folder and not is_date_label and (is_boundary_folder or not folders):
+                coord_el = next((el for el in pm.iter() if _tag_name(el) == 'coordinates'), None)
+                if coord_el is not None and coord_el.text:
+                    ring: list[tuple[float, float]] = []
+                    for tok in coord_el.text.strip().split():
+                        parts = tok.split(',')
+                        if len(parts) >= 2:
+                            p_lat = parse_float_or_none(parts[1])
+                            p_lng = parse_float_or_none(parts[0])
+                            v_lat, v_lng = valid_lat_lng(p_lat, p_lng)
+                            if v_lat is not None and v_lng is not None:
+                                ring.append((v_lat, v_lng))
+                    if len(ring) >= 3:
+                        boundary_polys.append((pm_name, ring))
+            if has_point:
+                point_placemarks.append((folder_name, pm))
+
+    if not point_placemarks:
+        return []
+
+    headers = [
+        'Nombre',
+        'Apellido',
+        'Localidad',
+        'Sector',
+        'Estado',
+        'Ultima visita',
+        'Observaciones',
+        'Direccion',
+        'Latitud',
+        'Longitud',
+        'Link Google Maps',
+    ]
+    rows: list[list[str]] = [headers]
+
+    for folder_name, pm in point_placemarks:
+        raw_name = _child_text(pm, 'name')
+        raw_desc = _child_text(pm, 'description')
+        style_url = _child_text(pm, 'styleUrl')
+
+        pt_el = next((el for el in pm.iter() if _tag_name(el) == 'Point'), None)
+        coord_el = _find_child(pt_el, 'coordinates') if pt_el is not None else None
+        coord_txt = ''.join(coord_el.itertext()).strip() if coord_el is not None else ''
+        coord_parts = [c.strip() for c in coord_txt.split(',')]
+        if len(coord_parts) < 2:
+            continue
+
+        lat, lng = valid_lat_lng(parse_float_or_none(coord_parts[1]), parse_float_or_none(coord_parts[0]))
+        if lat is None or lng is None:
+            continue
+
+        ext_map: dict[str, str] = {}
+        ext_el = _find_child(pm, 'ExtendedData')
+        if ext_el is not None:
+            for d_el in ext_el.iter():
+                if _tag_name(d_el) == 'Data':
+                    k_ext = norm_key(d_el.attrib.get('name', ''))
+                    v_ext = _child_text(d_el, 'value')
+                    if k_ext and v_ext:
+                        ext_map[k_ext] = v_ext
+
+        nombre, apellido, paren_notes = _split_kml_person_name(raw_name)
+        if not nombre:
+            continue
+
+        desc_dir, desc_obs, ultima_visita = _clean_kml_description(raw_desc)
+        direccion = ext_map.get('direccion', '') or desc_dir
+        if not direccion and re.search(r'\d', nombre):
+            direccion = nombre
+
+        notes_all = [*paren_notes]
+        if desc_obs:
+            notes_all.append(desc_obs)
+        observaciones = ' · '.join(dict.fromkeys(notes_all))
+
+        all_text_hint = f'{raw_name} {raw_desc} {folder_name}'
+        is_no_pasar = ('no pasar' in norm_key(all_text_hint)) or ('#icon-1898-e65100' in style_url.lower())
+        estado = ext_map.get('estado', '') or ('inactivo' if is_no_pasar else 'por_confirmar')
+
+        localidad = ext_map.get('localidad', '')
+        sector = ext_map.get('sector', '')
+        if not localidad:
+            inf_loc, inf_sec = _infer_kml_territory(lat, lng, boundary_polys, all_text_hint)
+            localidad = inf_loc
+            if not sector:
+                sector = inf_sec
+
+        maps_url = f'https://www.google.com/maps/search/?api=1&query={lat},{lng}'
+        rows.append(
+            [
+                nombre,
+                apellido,
+                localidad,
+                sector,
+                estado,
+                ultima_visita,
+                observaciones,
+                direccion,
+                str(lat),
+                str(lng),
+                maps_url,
+            ]
+        )
+
+    return [('Personas', rows)] if len(rows) > 1 else []
+
+
 def read_any_source_sheets(path: pathlib.Path) -> list[tuple[str, list[list[str]]]]:
     ext = path.suffix.lower()
     if ext == '.xlsx':
@@ -810,6 +1094,9 @@ def read_any_source_sheets(path: pathlib.Path) -> list[tuple[str, list[list[str]
         return read_docx_sheets(path)
     if ext == '.odt':
         return read_odt_sheets(path)
+    if ext in ('.kml', '.kmz'):
+        raw = _read_kml_raw_bytes(path)
+        return read_kml_bytes_to_sheets(raw, path.stem) if raw else []
     if ext in ('.txt', '.md'):
         text = _decode_text_bytes(path.read_bytes())
         return parse_text_to_sheets(text, path.stem)
@@ -834,9 +1121,12 @@ def parse_date(val: object) -> str | None:
     m_iso = re.match(r'^(\d{4})-(\d{1,2})-(\d{1,2})', s)
     if m_iso:
         return _valid_iso_date(int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3)))
-    m_lat = re.match(r'^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})', s)
+    m_lat = re.match(r'^(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})', s)
     if m_lat:
-        return _valid_iso_date(int(m_lat.group(3)), int(m_lat.group(2)), int(m_lat.group(1)))
+        year = int(m_lat.group(3))
+        if year < 100:
+            year += 2000
+        return _valid_iso_date(year, int(m_lat.group(2)), int(m_lat.group(1)))
     return None
 
 
@@ -1112,10 +1402,10 @@ def sync_excel_to_json(
     next_loc_id = max((int(l.get('id', 0)) for l in localidades), default=0) + 1
 
     persona_by_code = {str(p['codigo_interno']).upper(): p for p in personas if p.get('codigo_interno')}
-    persona_by_name_loc = {
-        (norm_key(p.get('nombre')), norm_key(p.get('apellido')), norm_key(p.get('localidad_nombre'))): p
-        for p in personas
-    }
+    personas_by_name_loc: dict[tuple[str, str, str], list[dict]] = {}
+    for p in personas:
+        key = (norm_key(p.get('nombre')), norm_key(p.get('apellido')), norm_key(p.get('localidad_nombre')))
+        personas_by_name_loc.setdefault(key, []).append(p)
     next_persona_id = max((int(p.get('id', 0)) for p in personas), default=0) + 1
     max_code_num = 0
     for p in personas:
@@ -1214,8 +1504,19 @@ def sync_excel_to_json(
         file_date, date_origin = date_meta.split('|', 1)
         stats['archivos'].append(rel_name)
         sheet_batches = read_any_source_sheets(src_path)
+        if not sheet_batches and src_path.suffix.lower() in ('.kml', '.kmz') and _is_kml_network_link(src_path):
+            stats['archivos_requieren_revision'].append(
+                {
+                    'archivo': rel_name,
+                    'fecha_entrega': file_date,
+                    'formato': src_path.suffix.lower(),
+                    'motivo': 'KMZ de enlace de red (NetworkLink) sin marcadores incrustados; exporta como .kml sin vínculo de red.',
+                }
+            )
+            continue
 
         has_real_rows = False
+        seen_in_file_ids: set[int] = set()
         deferred_batches: list[tuple[str, str, set[str], list[dict[str, str]]]] = []
 
         # 1. Localidades explícitas del archivo actual
@@ -1306,20 +1607,39 @@ def sync_excel_to_json(
                 effective_date = parse_date(pick(row, 'fecha_entrega', 'fecha_archivo', 'fecha_dato')) or file_date
                 loc_name = pick(row, 'localidad', 'comuna', 'ciudad')
                 loc_obj = ensure_localidad(loc_name, effective_date, rel_name) if loc_name else None
+                resolved_loc_name = loc_obj['nombre'] if loc_obj else ''
+                incoming_dir_probe, _lat_p, _lng_p, _map_p = extract_person_location(row)
+                incoming_sector_probe = pick(row, 'sector', 'sector_o_barrio', 'barrio', 'zona', 'direccion_referencial')
 
                 raw_code = pick(row, 'codigo_interno', 'codigo', 'cod', 'id_interno').upper()
                 existing = persona_by_code.get(raw_code) if raw_code else None
                 if not existing:
-                    existing = persona_by_name_loc.get(
-                        (norm_key(nombre), norm_key(apellido), norm_key(loc_obj['nombre'] if loc_obj else loc_name))
-                    )
-                if not existing and loc_name:
-                    existing = persona_by_name_loc.get((norm_key(nombre), norm_key(apellido), ''))
+                    k_main = (norm_key(nombre), norm_key(apellido), norm_key(resolved_loc_name or loc_name))
+                    candidates = list(personas_by_name_loc.get(k_main, []))
+                    if loc_name:
+                        candidates.extend(personas_by_name_loc.get((norm_key(nombre), norm_key(apellido), ''), []))
+                    eligible = [c for c in candidates if int(c.get('id', 0)) not in seen_in_file_ids]
+                    if len(eligible) == 1:
+                        cand = eligible[0]
+                        cand_dir_norm = norm_key(cand.get('direccion'))
+                        inc_dir_norm = norm_key(incoming_dir_probe)
+                        if apellido or not (cand_dir_norm and inc_dir_norm and cand_dir_norm != inc_dir_norm):
+                            existing = cand
+                    elif len(eligible) > 1:
+                        inc_dir_norm = norm_key(incoming_dir_probe)
+                        inc_sec_norm = norm_key(incoming_sector_probe)
+                        if inc_dir_norm:
+                            existing = next((c for c in eligible if norm_key(c.get('direccion')) == inc_dir_norm), None)
+                        if not existing and inc_sec_norm:
+                            existing = next((c for c in eligible if norm_key(c.get('sector')) == inc_sec_norm), None)
+                        if not existing and apellido:
+                            existing = eligible[0]
 
                 if existing:
                     prev_date = str(existing.get('fecha_dato') or '')
                     if prev_date and effective_date < prev_date:
                         stats['personas_protegidas_mas_reciente'] += 1
+                        seen_in_file_ids.add(int(existing.get('id', 0)))
                         continue
 
                 usa_lsch = parse_tri_bool(pick(row, 'usa_lsch', 'utiliza_lsch', 'lsch'))
@@ -1386,8 +1706,13 @@ def sync_excel_to_json(
                         norm_key(existing.get('localidad_nombre')),
                     )
                     if old_loc_key != new_loc_key:
-                        persona_by_name_loc.pop(old_loc_key, None)
-                    persona_by_name_loc[new_loc_key] = existing
+                        old_list = personas_by_name_loc.get(old_loc_key, [])
+                        if existing in old_list:
+                            old_list.remove(existing)
+                    new_list = personas_by_name_loc.setdefault(new_loc_key, [])
+                    if existing not in new_list:
+                        new_list.append(existing)
+                    seen_in_file_ids.add(int(existing.get('id', 0)))
                     stats['personas_actualizadas'] += 1
                 else:
                     if raw_code:
@@ -1433,9 +1758,11 @@ def sync_excel_to_json(
                     next_persona_id += 1
                     personas.append(person)
                     persona_by_code[code] = person
-                    persona_by_name_loc[
-                        (norm_key(person['nombre']), norm_key(person['apellido']), norm_key(person['localidad_nombre']))
-                    ] = person
+                    personas_by_name_loc.setdefault(
+                        (norm_key(person['nombre']), norm_key(person['apellido']), norm_key(person['localidad_nombre'])),
+                        [],
+                    ).append(person)
+                    seen_in_file_ids.add(int(person['id']))
                     stats['personas_agregadas'] += 1
 
         # 3. Seguimientos del archivo actual

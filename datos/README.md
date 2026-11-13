@@ -5,6 +5,7 @@ Coloca aquí los archivos que recibas con los datos de personas sordas o seguimi
 ## Formatos admitidos
 
 - **Planillas:** `.xlsx`, `.ods`, `.csv`, `.tsv`
+- **Mapas exportados (Google My Maps / Google Earth):** `.kml`, `.kmz` *(con marcadores incrustados; si el `.kmz` es solo un vínculo de red vacío, se marca en revisión para exportarlo como `.kml` completo)*
 - **Documentos y notas:** `.docx`, `.odt`, `.txt`, `.md` (tablas Markdown, bloques CSV/TSV o fichas tipo `Nombre: ...` / `Localidad: ...`)
 - **JSON estructurado:** `.json`
 - **PDF, imágenes o formatos antiguos (`.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.heic`, `.xls`, `.doc`, `.rtf`):** el sistema los conserva en historial y los marca en `meta.json` (`archivos_requieren_revision`) y en la vista **Respaldos** para que no pasen inadvertidos y puedan revisarse o transcribirse.

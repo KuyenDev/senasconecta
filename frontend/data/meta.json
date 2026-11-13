@@ -1,15 +1,22 @@
 {
   "app": "senasconecta",
   "grupo": "Grupo Señas Osorno",
-  "ultima_actualizacion": "2026-11-13T21:22:10.000Z",
+  "ultima_actualizacion": "2026-11-13T23:34:18.000Z",
   "fuentes_excel": [
-    "plantilla_senasconecta.xlsx"
+    "2026-06-30_mapa_senas_junio.kml"
   ],
-  "fuentes": [],
+  "fuentes": [
+    {
+      "archivo": "2026-06-30_mapa_senas_junio.kml",
+      "fecha_entrega": "2026-06-30",
+      "origen_fecha": "nombre",
+      "formato": ".kml"
+    }
+  ],
   "archivos_requieren_revision": [],
   "totales": {
-    "localidades": 3,
-    "personas": 0,
+    "localidades": 4,
+    "personas": 72,
     "seguimientos": 0
   }
 }

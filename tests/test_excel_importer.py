@@ -427,6 +427,9 @@ class ExcelImporterTests(unittest.TestCase):
             self.assertEqual(res['personas_actualizadas'], 1)
 
             personas = json.loads((data_dir / 'personas.json').read_text(encoding='utf-8'))
+            self.assertEqual(len(personas), 4)
+            localidades = {loc['nombre'] for loc in json.loads((data_dir / 'localidades.json').read_text(encoding='utf-8'))}
+            self.assertNotIn('11-23', localidades)
             por_nombre = {f"{p['nombre']} {p['apellido']}".strip(): p for p in personas}
 
             camila = por_nombre['Camila Soto']
@@ -448,6 +451,101 @@ class ExcelImporterTests(unittest.TestCase):
             self.assertIsNone(luis['latitud'])
             self.assertIsNone(luis['longitud'])
             self.assertEqual(luis['mapa_url'], '')
+
+    def test_07_kml_and_kmz_import_with_polygons_and_networklink(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            excel_dir = tmp_path / 'datos'
+            data_dir = tmp_path / 'data'
+            excel_dir.mkdir(parents=True, exist_ok=True)
+
+            kml_full = """<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Mapa prueba</name>
+    <Folder>
+      <name>Limites de Congregaciones</name>
+      <Placemark>
+        <name>Francke - Osorno</name>
+        <Polygon><outerBoundaryIs><LinearRing><coordinates>
+          -73.17,-40.57,0 -73.14,-40.57,0 -73.14,-40.54,0 -73.17,-40.54,0 -73.17,-40.57,0
+        </coordinates></LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>DATOS SORDOS</name>
+      <Placemark>
+        <name>1 - Sofía Test</name>
+        <description><![CDATA[Calle Prueba 123<br>NOTA: prefiere LSCh]]></description>
+        <Point><coordinates>-73.155,-40.555,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>2 - Tomás (NO PASAR)</name>
+        <description><![CDATA[Av. Sur 45<br>Ultima fecha: 30-03-23]]></description>
+        <styleUrl>#icon-1898-E65100</styleUrl>
+        <Point><coordinates>-73.160,-40.910,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>3 - Homónimo Prueba</name>
+        <description><![CDATA[Calle Uno 100]]></description>
+        <Point><coordinates>-73.169,-40.567,0</coordinates></Point>
+      </Placemark>
+      <Placemark>
+        <name>4 - Homónimo Prueba</name>
+        <description><![CDATA[Calle Dos 200]]></description>
+        <Point><coordinates>-73.161,-40.583,0</coordinates></Point>
+      </Placemark>
+    </Folder>
+    <Folder>
+      <name>Encuesta</name>
+      <Placemark>
+        <name>12-11-23</name>
+        <Polygon><outerBoundaryIs><LinearRing><coordinates>
+          -73.17,-40.92,0 -73.15,-40.92,0 -73.15,-40.90,0 -73.17,-40.90,0 -73.17,-40.92,0
+        </coordinates></LinearRing></outerBoundaryIs></Polygon>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>"""
+            (excel_dir / '2026-06-30_mapa_prueba.kml').write_text(kml_full, encoding='utf-8')
+
+            # KMZ con solo NetworkLink debe avisar en archivos_requieren_revision sin fallar
+            net_kmz = excel_dir / '2026-06-01_enlace_red.kmz'
+            with zipfile.ZipFile(net_kmz, 'w') as zf:
+                zf.writestr(
+                    'doc.kml',
+                    '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2">'
+                    '<Document><NetworkLink><name>Red</name><Link><href>https://example.com</href></Link></NetworkLink></Document></kml>',
+                )
+
+            res = importar_excel.sync_excel_to_json(excel_dir, data_dir, replace=True)
+            self.assertEqual(res['personas_agregadas'], 4)
+            self.assertEqual(len(res['archivos_requieren_revision']), 1)
+
+            # Re-ejecutar incremental debe actualizar los 4 sin duplicar
+            res_inc = importar_excel.sync_excel_to_json(excel_dir, data_dir, replace=False)
+            self.assertEqual(res_inc['personas_agregadas'], 0)
+            self.assertEqual(res_inc['personas_actualizadas'], 4)
+
+            personas = json.loads((data_dir / 'personas.json').read_text(encoding='utf-8'))
+            self.assertEqual(len(personas), 4)
+            localidades = {loc['nombre'] for loc in json.loads((data_dir / 'localidades.json').read_text(encoding='utf-8'))}
+            self.assertNotIn('11-23', localidades)
+            por_nombre = {f"{p['nombre']} {p['apellido']}".strip(): p for p in personas}
+            sofia = por_nombre['Sofía Test']
+            self.assertEqual(sofia['localidad_nombre'], 'Osorno')
+            self.assertEqual(sofia['sector'], 'Francke')
+            self.assertEqual(sofia['direccion'], 'Calle Prueba 123')
+            self.assertIn('prefiere LSCh', sofia['observaciones'])
+            self.assertEqual(sofia['fecha_dato'], '2026-06-30')
+
+            tomas = por_nombre['Tomás']
+            self.assertEqual(tomas['localidad_nombre'], 'Purranque')
+            self.assertEqual(tomas['estado'], 'inactivo')
+            self.assertEqual(tomas['fecha_ultima_visita'], '2023-03-30')
+            self.assertIn('NO PASAR', tomas['observaciones'])
 
 
 if __name__ == '__main__':

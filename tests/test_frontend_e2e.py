@@ -53,11 +53,29 @@ class FrontendStaticE2ETests(unittest.TestCase):
         return proc.stdout
 
     def test_01_empty_published_site_via_http(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            empty_site = tmp_path / 'site_empty'
+            shutil.copytree(FRONTEND_DIR, empty_site)
+            empty_datos = tmp_path / 'datos_vacios'
+            empty_datos.mkdir(parents=True, exist_ok=True)
+            importar_excel.sync_excel_to_json(empty_datos, empty_site / 'data', replace=True)
+
+            server, port = serve_directory(empty_site)
+            try:
+                url = f'http://127.0.0.1:{port}'
+                out = self._run_e2e('empty_published', url, f'{url}/index.html#dashboard')
+                self.assertIn('E2E_EMPTY_PUBLISHED_OK', out)
+            finally:
+                server.shutdown()
+                server.server_close()
+
+    def test_03_real_published_site_with_kml_markers(self):
         server, port = serve_directory(FRONTEND_DIR)
         try:
             url = f'http://127.0.0.1:{port}'
-            out = self._run_e2e('empty_published', url, f'{url}/index.html#dashboard')
-            self.assertIn('E2E_EMPTY_PUBLISHED_OK', out)
+            out = self._run_e2e('live_published', url, f'{url}/index.html#dashboard')
+            self.assertIn('E2E_LIVE_PUBLISHED_OK', out)
         finally:
             server.shutdown()
             server.server_close()
@@ -137,7 +155,7 @@ class FrontendStaticE2ETests(unittest.TestCase):
                     ),
                 ],
             )
-            importar_excel.sync_excel_to_json(excel_dir, subpath_site / 'data')
+            importar_excel.sync_excel_to_json(excel_dir, subpath_site / 'data', replace=True)
 
             server, port = serve_directory(web_root)
             try:
