@@ -64,6 +64,8 @@ function normalizeSnapshot(raw) {
       consentimiento_registrado: p.consentimiento_registrado ? 1 : 0,
       nota_consentimiento: String(p.nota_consentimiento ?? '').trim(),
       fecha_consentimiento: String(p.fecha_consentimiento ?? '').trim(),
+      fecha_dato: String(p.fecha_dato ?? '').trim(),
+      archivo_fuente: String(p.archivo_fuente ?? '').trim(),
       fecha_creacion: String(p.fecha_creacion ?? '').trim(),
       fecha_actualizacion: String(p.fecha_actualizacion ?? p.fecha_creacion ?? '').trim(),
     };

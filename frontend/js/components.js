@@ -222,6 +222,8 @@ export async function openPersonDetailModal(personId) {
           { className: 'detail-grid' },
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Última visita' }), el('span', { className: 'detail-val', text: formatDate(persona.fecha_ultima_visita) })),
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Próxima acción' }), el('span', { className: 'detail-val', text: persona.proxima_accion || '—' })),
+          el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Fecha del dato' }), el('span', { className: 'detail-val', text: persona.fecha_dato ? formatDate(persona.fecha_dato) : '—' })),
+          el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Archivo fuente' }), el('span', { className: 'detail-val', text: persona.archivo_fuente || '—' })),
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Última actualización' }), el('span', { className: 'detail-val', text: formatDateTime(persona.fecha_actualizacion) })),
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Consentimiento' }), el('span', { className: 'detail-val', text: persona.consentimiento_registrado ? `Registrado (${formatDate(persona.fecha_consentimiento)})` : 'Pendiente' }))
         ),

@@ -9,7 +9,7 @@ import {
 } from '../api.js';
 import { showToast } from '../components.js';
 import { state } from '../state.js';
-import { clearNode, downloadBlob, el, formatDateTime } from '../utils.js';
+import { clearNode, downloadBlob, el, formatDate, formatDateTime } from '../utils.js';
 
 async function triggerDownload(formato) {
   try {
@@ -103,17 +103,26 @@ export async function renderRespaldosView(container, { navigateTo, refreshMetaUi
       el(
         'div',
         { style: { fontSize: '0.88rem', color: 'var(--text-secondary)' } },
-        el('strong', { text: 'Fuentes Excel detectadas: ' }),
+        el('strong', { text: 'Fuentes integradas (prioridad más reciente): ' }),
         el('span', {
-          text: Array.isArray(meta.fuentes_excel) && meta.fuentes_excel.length
-            ? meta.fuentes_excel.join(', ')
-            : 'plantilla_senasconecta.xlsx',
+          text: Array.isArray(meta.fuentes) && meta.fuentes.length
+            ? meta.fuentes.map((f) => `${f.archivo} (${formatDate(f.fecha_entrega)})`).join(', ')
+            : (Array.isArray(meta.fuentes_excel) && meta.fuentes_excel.length
+              ? meta.fuentes_excel.join(', ')
+              : 'plantilla_senasconecta.xlsx'),
         })
       ),
+      Array.isArray(meta.archivos_requieren_revision) && meta.archivos_requieren_revision.length
+        ? el(
+            'div',
+            { className: 'alert alert-warning', style: { marginBottom: 0 } },
+            `Archivos que requieren extracción/revisión asistida (PDF, imágenes o formatos antiguos): ${meta.archivos_requieren_revision.map((f) => `${f.archivo} (${formatDate(f.fecha_entrega)})`).join(', ')}.`
+          )
+        : null,
       el(
         'div',
-        { className: 'alert alert-warning', style: { marginBottom: 0 } },
-        'Para actualizar los datos publicados en GitHub Pages: coloca tus planillas .xlsx o .csv en la carpeta datos_excel/, ejecuta "python3 scripts/importar_excel.py" y sube los cambios en frontend/data/ al repositorio.'
+        { className: 'alert alert-info', style: { marginBottom: 0 } },
+        'Para actualizar los datos publicados: coloca archivos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md) con su fecha de entrega en datos_excel/ (por ejemplo 2026-11-15_osorno.docx) y ejecuta "python3 scripts/publicar.py". Siempre prevalecen los datos de fecha más reciente.'
       )
     )
   );

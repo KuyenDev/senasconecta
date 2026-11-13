@@ -1,7 +1,24 @@
-# Carpeta de datos Excel — SeñasConecta (Grupo Señas Osorno)
+# Carpeta de datos y archivos de entrega — SeñasConecta (Grupo Señas Osorno)
 
-Coloca aquí tus planillas `.xlsx` (Excel / LibreOffice Calc) o `.csv`.
-Puedes usar directamente `plantilla_senasconecta.xlsx` o agregar tus propios archivos `.xlsx`.
+Coloca aquí los archivos que recibas con los datos de personas sordas o seguimientos, indicando la **fecha de entrega** para que el sistema integre todo en `frontend/data/*.json` **priorizando siempre el registro más reciente**.
+
+## Formatos admitidos
+
+- **Planillas:** `.xlsx`, `.ods`, `.csv`, `.tsv`
+- **Documentos y notas:** `.docx`, `.odt`, `.txt`, `.md` (tablas Markdown, bloques CSV/TSV o fichas tipo `Nombre: ...` / `Localidad: ...`)
+- **JSON estructurado:** `.json`
+- **PDF, imágenes o formatos antiguos (`.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.heic`, `.xls`, `.doc`, `.rtf`):** el sistema los conserva en historial y los marca en `meta.json` (`archivos_requieren_revision`) y en la vista **Respaldos** para que no pasen inadvertidos y puedan revisarse o transcribirse.
+
+## Cómo indicar la fecha de entrega (prioridad cronológica)
+
+Para que siempre prevalezca la versión más nueva cuando una persona aparece en varios archivos, nombra el archivo o una subcarpeta con su fecha de entrega:
+
+- `2026-11-15_osorno.xlsx` o `15-11-2026_rahue.docx`
+- O agrúpalos por carpeta con fecha: `datos_excel/2026-11-15/notas_san_pablo.txt`
+
+Si el nombre o carpeta no incluye fecha, se toma automáticamente la fecha de modificación del archivo. Los archivos se procesan del más antiguo al más reciente, y un archivo antiguo **nunca sobrescribe** datos ya actualizados con una fecha posterior; además, si una entrega reciente solo trae algunos campos actualizados (por ejemplo solo `Sector` o `Estado`), conserva intactos los demás datos previos de la persona.
+
+> Puedes usar directamente `plantilla_senasconecta.xlsx` como base para nuevas planillas.
 
 ## Hojas y columnas reconocidas
 

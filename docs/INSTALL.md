@@ -25,17 +25,18 @@ Luego abre `http://127.0.0.1:8000/` en el navegador.
 
 ---
 
-## 3. Integrar planillas Excel (.xlsx / .csv)
+## 3. Integrar archivos recibidos (.xlsx, .ods, .csv, .docx, .txt, .md, .json)
 
-1. Abre o copia `datos_excel/plantilla_senasconecta.xlsx`, o agrega tus propios archivos `.xlsx` / `.csv` dentro de `datos_excel/`.
-2. Consulta el detalle de hojas (`Personas`, `Localidades`, `Seguimientos`) y columnas admitidas en [`datos_excel/README.md`](../datos_excel/README.md).
-3. Ejecuta:
+1. Coloca tus archivos dentro de `datos_excel/` indicando la **fecha en que te los entregaron** (por ejemplo `2026-11-15_datos_osorno.xlsx`, `15-11-2026_san_pablo.docx` o en subcarpetas `datos_excel/2026-11-15/`). También puedes usar `datos_excel/plantilla_senasconecta.xlsx`.
+2. Formatos procesados automáticamente: `.xlsx`, `.ods`, `.csv`, `.tsv`, `.json`, `.docx`, `.odt`, `.txt` y `.md` (los archivos `.pdf`, imágenes o `.xls`/`.doc` antiguos quedan registrados en `meta.json` para revisión asistida).
+3. Consulta el detalle de hojas (`Personas`, `Localidades`, `Seguimientos`) y columnas admitidas en [`datos_excel/README.md`](../datos_excel/README.md).
+4. Ejecuta:
 
 ```bash
 python3 scripts/importar_excel.py
 ```
 
-El script lee todas las planillas de `datos_excel/`, normaliza fechas, valores `Sí/No` y nombres de localidades, y actualiza:
+El script ordena todas las fuentes de la más antigua a la más reciente para que **siempre prevalezca la entrega más reciente**, evita que archivos antiguos pisen datos posteriores, combina actualizaciones parciales sin borrar datos previos y actualiza:
 - `frontend/data/localidades.json`
 - `frontend/data/personas.json`
 - `frontend/data/seguimientos.json`
