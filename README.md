@@ -4,7 +4,7 @@
 
 **SeñasConecta** es una aplicación web **100 % estática** diseñada para organizar y consultar de forma clara la información territorial de personas sordas vinculada al **Grupo Señas Osorno**, sus localidades, sectores, preferencias de comunicación en Lengua de Señas Chilena (LSCh) y seguimientos territoriales.
 
-Funciona sin servidor, sin base de datos externa y sin inicio de sesión: lee directamente archivos JSON estáticos (`frontend/data/*.json`) integrados desde `datos_excel/`, y se publica automáticamente en **GitHub Pages**.
+Funciona sin servidor, sin base de datos externa y sin inicio de sesión: lee directamente archivos JSON estáticos (`frontend/data/*.json`) integrados desde `datos/`, y se publica automáticamente en **GitHub Pages**.
 
 ---
 
@@ -12,7 +12,7 @@ Funciona sin servidor, sin base de datos externa y sin inicio de sesión: lee di
 
 ```text
 señasConecta/
-├── datos_excel/
+├── datos/
 │   ├── README.md                    # Guía de formatos, fechas de entrega y columnas
 │   └── plantilla_senasconecta.xlsx  # Plantilla vacía lista para llenar
 ├── docs/
@@ -41,7 +41,7 @@ señasConecta/
 
 ## Publicación y actualización automática
 
-1. Coloca o actualiza tus archivos dentro de [datos_excel/](datos_excel/README.md) indicando la **fecha en que te los entregaron** (por ejemplo `2026-11-15_osorno.xlsx`, `2026-11-16_notas.docx` o en subcarpetas con fecha). Formatos admitidos directamente: `.xlsx`, `.ods`, `.csv`, `.tsv`, `.json`, `.docx`, `.odt`, `.txt` y `.md`. Si recibes un PDF o imagen, guárdalo igual con su fecha y el resumen lo marcará para extracción asistida.
+1. Coloca o actualiza tus archivos dentro de [datos/](datos/README.md) indicando la **fecha en que te los entregaron** (por ejemplo `2026-11-15_osorno.xlsx`, `2026-11-16_notas.docx` o en subcarpetas con fecha). Formatos admitidos directamente: `.xlsx`, `.ods`, `.csv`, `.tsv`, `.json`, `.docx`, `.odt`, `.txt` y `.md`. Si recibes un PDF o imagen, guárdalo igual con su fecha y el resumen lo marcará para extracción asistida.
 2. Ejecuta un solo comando en la raíz del proyecto:
 
 ```bash
@@ -49,11 +49,11 @@ python3 scripts/publicar.py
 ```
 
 Ese comando automáticamente:
-- Integra todos los archivos de `datos_excel/` en orden cronológico (siempre priorizando la información de **fecha de entrega más reciente**) hacia `frontend/data/*.json` (usa `--replace` si quieres reconstruir desde cero todos los registros anteriores).
+- Integra todos los archivos de `datos/` en orden cronológico (siempre priorizando la información de **fecha de entrega más reciente**) hacia `frontend/data/*.json` (usa `--replace` si quieres reconstruir desde cero todos los registros anteriores).
 - Ejecuta toda la batería de pruebas locales.
 - Crea el commit, sube `main` a GitHub, asegura GitHub Pages activado por GitHub Actions y espera hasta verificar que el sitio web responde en vivo.
 
-> También puedes subir archivos actualizados a `datos_excel/` directamente desde la web de GitHub: el workflow `.github/workflows/deploy-pages.yml` ejecuta `scripts/importar_excel.py` automáticamente al construir GitHub Pages.
+> También puedes subir archivos actualizados a `datos/` directamente desde la web de GitHub: el workflow `.github/workflows/deploy-pages.yml` ejecuta `scripts/importar_excel.py` automáticamente al construir GitHub Pages.
 
 ---
 

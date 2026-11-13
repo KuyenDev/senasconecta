@@ -185,7 +185,7 @@ export async function renderPersonasView(container) {
           hasFilters ? 'Sin coincidencias para los filtros aplicados' : 'No hay personas registradas todavía',
           hasFilters
             ? 'Prueba limpiando o combinando otros criterios de búsqueda.'
-            : 'Todavía no existen registros publicados. Agrega tus archivos Excel en datos_excel/ y ejecuta python3 scripts/importar_excel.py.'
+            : 'Todavía no existen registros publicados. Agrega tus archivos en datos/ y ejecuta python3 scripts/importar_excel.py.'
         )
       );
       return;

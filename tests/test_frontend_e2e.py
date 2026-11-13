@@ -69,7 +69,7 @@ class FrontendStaticE2ETests(unittest.TestCase):
             subpath_site = web_root / 'senasconecta'
             shutil.copytree(FRONTEND_DIR, subpath_site)
 
-            excel_dir = tmp_path / 'datos_excel'
+            excel_dir = tmp_path / 'datos'
             excel_dir.mkdir(parents=True, exist_ok=True)
             importar_excel.write_xlsx_workbook(
                 excel_dir / 'datos_grupo.xlsx',

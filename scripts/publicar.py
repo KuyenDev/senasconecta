@@ -284,7 +284,7 @@ def main() -> int:
     )
     parser.add_argument('--repo', default=DEFAULT_REPO, help='Nombre del repositorio en GitHub (por defecto: senasconecta)')
     parser.add_argument('--mensaje', default='Actualizar datos y publicar en GitHub Pages', help='Mensaje de commit')
-    parser.add_argument('--replace', action='store_true', help='Reemplaza registros previos desde los archivos en datos_excel/')
+    parser.add_argument('--replace', action='store_true', help='Reemplaza registros previos desde los archivos en datos/')
     parser.add_argument('--privado', action='store_true', help='Crea el repositorio como privado (requiere GitHub Pro/Team para Pages)')
     parser.add_argument('--skip-tests', action='store_true', help='Omite la ejecución de pruebas antes de subir')
     parser.add_argument('--no-wait', action='store_true', help='No espera a que GitHub Actions finalice el despliegue')
@@ -293,7 +293,7 @@ def main() -> int:
     sys.path.insert(0, str(ROOT_DIR / 'scripts'))
     import importar_excel  # noqa: E402
 
-    print('1) Integrando planillas de datos_excel/ a frontend/data/*.json...')
+    print('1) Integrando archivos de datos/ a frontend/data/*.json...')
     sync_stats = importar_excel.sync_excel_to_json(replace=args.replace)
     print(json.dumps(sync_stats, ensure_ascii=False, indent=2))
 

@@ -85,7 +85,7 @@ export async function renderRespaldosView(container, { navigateTo, refreshMetaUi
         el('h2', { className: 'card-title', text: 'Estado de los datos JSON' }),
         el('p', {
           className: 'card-subtitle',
-          text: 'Resumen de la última integración generada desde la carpeta datos_excel/.',
+          text: 'Resumen de la última integración generada desde la carpeta datos/.',
         })
       )
     ),
@@ -122,7 +122,7 @@ export async function renderRespaldosView(container, { navigateTo, refreshMetaUi
       el(
         'div',
         { className: 'alert alert-info', style: { marginBottom: 0 } },
-        'Para actualizar los datos publicados: coloca archivos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md) con su fecha de entrega en datos_excel/ (por ejemplo 2026-11-15_osorno.docx) y ejecuta "python3 scripts/publicar.py". Siempre prevalecen los datos de fecha más reciente.'
+        'Para actualizar los datos publicados: coloca archivos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md) con su fecha de entrega en datos/ (por ejemplo 2026-11-15_osorno.docx) y ejecuta "python3 scripts/publicar.py". Siempre prevalecen los datos de fecha más reciente.'
       )
     )
   );

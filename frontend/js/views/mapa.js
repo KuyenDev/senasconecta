@@ -213,7 +213,7 @@ export async function renderMapaView(container, { navigateTo }) {
   btnEnableMap.addEventListener('click', async () => {
     if (!withCoords.length) {
       mapStatus.textContent =
-        'Ninguna localidad tiene coordenadas referenciales configuradas todavía. Puedes agregar columnas latitud y longitud en la hoja "Localidades" de tu archivo Excel en datos_excel/.';
+        'Ninguna localidad tiene coordenadas referenciales configuradas todavía. Puedes agregar columnas latitud y longitud en la hoja "Localidades" de tu archivo en datos/.';
       mapStatus.classList.remove('hidden');
       return;
     }

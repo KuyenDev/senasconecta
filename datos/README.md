@@ -14,7 +14,7 @@ Coloca aquí los archivos que recibas con los datos de personas sordas o seguimi
 Para que siempre prevalezca la versión más nueva cuando una persona aparece en varios archivos, nombra el archivo o una subcarpeta con su fecha de entrega:
 
 - `2026-11-15_osorno.xlsx` o `15-11-2026_rahue.docx`
-- O agrúpalos por carpeta con fecha: `datos_excel/2026-11-15/notas_san_pablo.txt`
+- O agrúpalos por carpeta con fecha: `datos/2026-11-15/notas_san_pablo.txt`
 
 Si el nombre o carpeta no incluye fecha, se toma automáticamente la fecha de modificación del archivo. Los archivos se procesan del más antiguo al más reciente, y un archivo antiguo **nunca sobrescribe** datos ya actualizados con una fecha posterior; además, si una entrega reciente solo trae algunos campos actualizados (por ejemplo solo `Sector` o `Estado`), conserva intactos los demás datos previos de la persona.
 

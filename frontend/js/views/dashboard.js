@@ -106,7 +106,7 @@ export async function renderDashboardView(container, { navigateTo }) {
         { className: 'card' },
         renderEmptyState(
           'Territorio sin personas registradas aún',
-          'Aún no hay personas integradas en los datos JSON del Grupo Señas Osorno. Coloca tus planillas Excel en datos_excel/ y ejecuta python3 scripts/importar_excel.py.',
+          'Aún no hay personas integradas en los datos JSON del Grupo Señas Osorno. Coloca tus archivos en datos/ y ejecuta python3 scripts/importar_excel.py.',
           el(
             'div',
             { style: { display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' } },

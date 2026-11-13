@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - "frontend/**"
-      - "datos_excel/**"
+      - "datos/**"
       - "scripts/importar_excel.py"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:

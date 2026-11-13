@@ -27,9 +27,9 @@ Luego abre `http://127.0.0.1:8000/` en el navegador.
 
 ## 3. Integrar archivos recibidos (.xlsx, .ods, .csv, .docx, .txt, .md, .json)
 
-1. Coloca tus archivos dentro de `datos_excel/` indicando la **fecha en que te los entregaron** (por ejemplo `2026-11-15_datos_osorno.xlsx`, `15-11-2026_san_pablo.docx` o en subcarpetas `datos_excel/2026-11-15/`). También puedes usar `datos_excel/plantilla_senasconecta.xlsx`.
+1. Coloca tus archivos dentro de `datos/` indicando la **fecha en que te los entregaron** (por ejemplo `2026-11-15_datos_osorno.xlsx`, `15-11-2026_san_pablo.docx` o en subcarpetas `datos/2026-11-15/`). También puedes usar `datos/plantilla_senasconecta.xlsx`.
 2. Formatos procesados automáticamente: `.xlsx`, `.ods`, `.csv`, `.tsv`, `.json`, `.docx`, `.odt`, `.txt` y `.md` (los archivos `.pdf`, imágenes o `.xls`/`.doc` antiguos quedan registrados en `meta.json` para revisión asistida).
-3. Consulta el detalle de hojas (`Personas`, `Localidades`, `Seguimientos`) y columnas admitidas en [`datos_excel/README.md`](../datos_excel/README.md).
+3. Consulta el detalle de hojas (`Personas`, `Localidades`, `Seguimientos`) y columnas admitidas en [`datos/README.md`](../datos/README.md).
 4. Ejecuta:
 
 ```bash
@@ -45,15 +45,15 @@ El script ordena todas las fuentes de la más antigua a la más reciente para qu
 
 ### Regenerar la plantilla vacía
 
-Si alguna vez borras o modificas `datos_excel/plantilla_senasconecta.xlsx`, puedes volver a crearla sin perder datos ejecutando:
+Si alguna vez borras o modificas `datos/plantilla_senasconecta.xlsx`, puedes volver a crearla sin perder datos ejecutando:
 
 ```bash
 python3 scripts/importar_excel.py --crear-plantilla
 ```
 
-### Reemplazar todo desde Excel
+### Reemplazar todo desde la carpeta datos
 
-Si prefieres que `personas.json`, `localidades.json` (conservando las 3 localidades base: Osorno, Río Negro y San Pablo, si no se redefinen) y `seguimientos.json` se regeneren desde cero únicamente con lo que haya en `datos_excel/`:
+Si prefieres que `personas.json`, `localidades.json` (conservando las 3 localidades base: Osorno, Río Negro y San Pablo, si no se redefinen) y `seguimientos.json` se regeneren desde cero únicamente con lo que haya en `datos/`:
 
 ```bash
 python3 scripts/importar_excel.py --replace

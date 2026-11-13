@@ -37,7 +37,7 @@ export async function renderEstadisticasView(container, { navigateTo }) {
         { className: 'card' },
         renderEmptyState(
           'Aún no hay suficientes registros para generar estadísticas',
-          'Cuando integres personas desde Excel en datos_excel/, aquí verás el desglose por localidad, estado y necesidades de comunicación sin porcentajes engañosos.',
+          'Cuando integres personas desde tus archivos en datos/, aquí verás el desglose por localidad, estado y necesidades de comunicación sin porcentajes engañosos.',
           el('button', {
             type: 'button',
             className: 'btn btn-outline',

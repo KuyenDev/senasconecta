@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Integra archivos recibidos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md)
-desde datos_excel/ hacia la base JSON estática en frontend/data/, priorizando
+desde datos/ hacia la base JSON estática en frontend/data/, priorizando
 siempre los archivos con fecha de entrega más reciente.
 
 Sin dependencias externas: usa únicamente la biblioteca estándar de Python 3.
@@ -20,7 +20,7 @@ import zipfile
 from xml.sax.saxutils import escape
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
-EXCEL_DIR = ROOT_DIR / 'datos_excel'
+EXCEL_DIR = ROOT_DIR / 'datos'
 DATA_DIR = ROOT_DIR / 'frontend' / 'data'
 
 SEED_CATEGORIAS = {
@@ -1385,12 +1385,12 @@ def sync_excel_to_json(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description='Integra archivos recibidos desde datos_excel/ hacia frontend/data/*.json priorizando los más recientes.'
+        description='Integra archivos recibidos desde datos/ hacia frontend/data/*.json priorizando los más recientes.'
     )
-    parser.add_argument('--excel-dir', type=pathlib.Path, default=EXCEL_DIR)
+    parser.add_argument('--datos-dir', '--excel-dir', dest='excel_dir', type=pathlib.Path, default=EXCEL_DIR)
     parser.add_argument('--data-dir', type=pathlib.Path, default=DATA_DIR)
-    parser.add_argument('--replace', action='store_true', help='Reemplaza personas y seguimientos con el contenido actual de datos_excel/')
-    parser.add_argument('--crear-plantilla', action='store_true', help='Crea/regenera plantilla_senasconecta.xlsx en datos_excel/')
+    parser.add_argument('--replace', action='store_true', help='Reemplaza personas y seguimientos con el contenido actual de datos/')
+    parser.add_argument('--crear-plantilla', action='store_true', help='Crea/regenera plantilla_senasconecta.xlsx en datos/')
     args = parser.parse_args()
 
     if args.crear_plantilla or not (args.excel_dir / 'plantilla_senasconecta.xlsx').exists():

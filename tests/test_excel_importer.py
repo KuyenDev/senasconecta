@@ -16,7 +16,7 @@ class ExcelImporterTests(unittest.TestCase):
     def test_01_template_generation_and_empty_sync(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
-            excel_dir = tmp_path / 'datos_excel'
+            excel_dir = tmp_path / 'datos'
             data_dir = tmp_path / 'data'
 
             tpl_path = importar_excel.create_excel_template(excel_dir)
@@ -47,7 +47,7 @@ class ExcelImporterTests(unittest.TestCase):
     def test_02_xlsx_multisheet_import_and_normalizations(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
-            excel_dir = tmp_path / 'datos_excel'
+            excel_dir = tmp_path / 'datos'
             data_dir = tmp_path / 'data'
             excel_dir.mkdir(parents=True, exist_ok=True)
 
@@ -176,7 +176,7 @@ class ExcelImporterTests(unittest.TestCase):
     def test_03_csv_semicolon_idempotent_upsert_and_replace(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
-            excel_dir = tmp_path / 'datos_excel'
+            excel_dir = tmp_path / 'datos'
             data_dir = tmp_path / 'data'
             excel_dir.mkdir(parents=True, exist_ok=True)
 
@@ -220,7 +220,7 @@ class ExcelImporterTests(unittest.TestCase):
     def test_04_chronological_priority_ignores_alphabetical_and_protects_newer(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
-            excel_dir = tmp_path / 'datos_excel'
+            excel_dir = tmp_path / 'datos'
             data_dir = tmp_path / 'data'
             excel_dir.mkdir(parents=True, exist_ok=True)
 
@@ -285,7 +285,7 @@ class ExcelImporterTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = pathlib.Path(tmp)
-            excel_dir = tmp_path / 'datos_excel'
+            excel_dir = tmp_path / 'datos'
             data_dir = tmp_path / 'data'
             sub_dir = excel_dir / '2026-11-14'
             sub_dir.mkdir(parents=True, exist_ok=True)
