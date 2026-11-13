@@ -382,12 +382,14 @@ async function runScenario() {
     const dashText = mainEl.textContent;
     assert(dashText.includes('Personas registradas'), 'Dashboard shows Personas registradas card');
     assert(dashText.includes('Territorio sin personas registradas'), 'Dashboard shows empty territory message');
-    assert(dashText.includes('8'), 'Dashboard shows 8 initial localidades');
+    assert(dashText.includes('3'), 'Dashboard shows 3 initial localidades');
 
     await nav('territorio');
     const terrText = mainEl.textContent;
     assert(terrText.includes('Osorno'), 'Territorio lists Osorno');
-    assert(terrText.includes('Río Bueno'), 'Territorio lists Río Bueno');
+    assert(terrText.includes('Río Negro'), 'Territorio lists Río Negro');
+    assert(terrText.includes('San Pablo'), 'Territorio lists San Pablo');
+    assert(!terrText.includes('Purranque') && !terrText.includes('Río Bueno'), 'Only confirmed localidades are shown');
     assert(!terrText.includes('+ Nueva localidad'), 'Territorio is clean static consultation');
 
     await nav('estadisticas');
@@ -410,7 +412,7 @@ async function runScenario() {
     searchInput.value = 'Rio';
     searchInput.dispatchEvent({ type: 'input' });
     await flush(320);
-    assert(mainEl.textContent.includes('Mateo Paredes'), 'Accent-insensitive search finds Mateo Paredes in Río Bueno');
+    assert(mainEl.textContent.includes('Mateo Paredes'), 'Accent-insensitive search finds Mateo Paredes in Río Negro');
     assert(!mainEl.textContent.includes('Sofía Cárdenas'), 'Search filters out non-matching persona');
 
     searchInput.value = 'Rahue';

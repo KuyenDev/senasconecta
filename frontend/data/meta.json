@@ -1,12 +1,12 @@
 {
   "app": "senasconecta",
   "grupo": "Grupo Señas Osorno",
-  "ultima_actualizacion": "2026-11-13T20:48:23.000Z",
+  "ultima_actualizacion": "2026-11-13T20:56:04.000Z",
   "fuentes_excel": [
     "plantilla_senasconecta.xlsx"
   ],
   "totales": {
-    "localidades": 8,
+    "localidades": 3,
     "personas": 0,
     "seguimientos": 0
   }

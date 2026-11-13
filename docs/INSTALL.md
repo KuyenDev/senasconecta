@@ -52,7 +52,7 @@ python3 scripts/importar_excel.py --crear-plantilla
 
 ### Reemplazar todo desde Excel
 
-Si prefieres que `personas.json`, `localidades.json` (conservando las 8 localidades base si no se redefinen) y `seguimientos.json` se regeneren desde cero únicamente con lo que haya en `datos_excel/`:
+Si prefieres que `personas.json`, `localidades.json` (conservando las 3 localidades base: Osorno, Río Negro y San Pablo, si no se redefinen) y `seguimientos.json` se regeneren desde cero únicamente con lo que haya en `datos_excel/`:
 
 ```bash
 python3 scripts/importar_excel.py --replace

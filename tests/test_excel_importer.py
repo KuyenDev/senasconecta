@@ -36,7 +36,8 @@ class ExcelImporterTests(unittest.TestCase):
             categorias = json.loads((data_dir / 'categorias.json').read_text(encoding='utf-8'))
             meta = json.loads((data_dir / 'meta.json').read_text(encoding='utf-8'))
 
-            self.assertEqual(len(localidades), 8)
+            self.assertEqual(len(localidades), 3)
+            self.assertEqual([l['nombre'] for l in localidades], ['Osorno', 'Río Negro', 'San Pablo'])
             self.assertEqual(personas, [])
             self.assertEqual(seguimientos, [])
             self.assertIn('estado_registro', categorias)
@@ -144,7 +145,7 @@ class ExcelImporterTests(unittest.TestCase):
             personas = json.loads((data_dir / 'personas.json').read_text(encoding='utf-8'))
             seguimientos = json.loads((data_dir / 'seguimientos.json').read_text(encoding='utf-8'))
 
-            self.assertEqual(len(localidades), 10)
+            self.assertEqual(len(localidades), 5)
             frutillar = next(l for l in localidades if l['nombre'] == 'Frutillar')
             self.assertAlmostEqual(frutillar['latitud'], -41.127, places=3)
             self.assertEqual(frutillar['activa'], 1)
@@ -183,7 +184,7 @@ class ExcelImporterTests(unittest.TestCase):
             csv_path.write_bytes(
                 (
                     '\ufeffNombre;Apellido;Localidad;Sector;Usa LSCh;Estado\n'
-                    'Elena;Vargas;Río Bueno;Centro;Sí;Por confirmar\n'
+                    'Elena;Vargas;Río Negro;Centro;Sí;Por confirmar\n'
                 ).encode('utf-8')
             )
 
@@ -194,7 +195,7 @@ class ExcelImporterTests(unittest.TestCase):
             csv_path.write_bytes(
                 (
                     '\ufeffNombre;Apellido;Localidad;Sector;Usa LSCh;Estado\n'
-                    'Elena;Vargas;Río Bueno;Norte;Sí;Confirmado\n'
+                    'Elena;Vargas;Río Negro;Norte;Sí;Confirmado\n'
                 ).encode('utf-8')
             )
             s2 = importar_excel.sync_excel_to_json(excel_dir, data_dir)

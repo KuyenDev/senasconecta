@@ -100,7 +100,7 @@ class FrontendStaticE2ETests(unittest.TestCase):
                                 '',
                                 'Mateo',
                                 'Paredes',
-                                'Río Bueno',
+                                'Río Negro',
                                 'Centro',
                                 '2026-02-10',
                                 'Comunicación escrita',

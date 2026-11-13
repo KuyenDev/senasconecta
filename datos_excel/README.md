@@ -8,7 +8,7 @@ Puedes usar directamente `plantilla_senasconecta.xlsx` o agregar tus propios arc
 ### 1. Hoja `Personas`
 - `Nombre` *(requerido para importar la fila)*
 - `Apellido`
-- `Localidad` *(ej. Osorno, Río Negro, Purranque, Puerto Octay, San Pablo, Puyehue, San Juan de la Costa, Río Bueno; si pones otra, se crea automáticamente)*
+- `Localidad` *(ej. Osorno, Río Negro, San Pablo; si agregas otra en tu Excel, se crea automáticamente)*
 - `Sector` *(ej. Rahue Bajo, Francke, Centro)*
 - `Fecha incorporacion` *(YYYY-MM-DD o DD/MM/YYYY)*
 - `Medio comunicacion` *(ej. LSCh, Escrito, Lectura labial, Bimodal, Señas caseras, Videollamada, Otro)*
@@ -35,5 +35,5 @@ Puedes usar directamente `plantilla_senasconecta.xlsx` o agregar tus propios arc
 python3 scripts/importar_excel.py
 ```
 
-Esto actualiza los JSON en `frontend/data/`. Luego subes los cambios con `git push` para publicarlos en GitHub Pages.
+Esto actualiza los JSON en `frontend/data/`. Para integrar, probar y publicar directo en GitHub Pages con un comando, ejecuta `python3 scripts/publicar.py`.
 

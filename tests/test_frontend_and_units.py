@@ -46,7 +46,7 @@ class FrontendUnitsAndSecurityTests(unittest.TestCase):
             self.assertIn(group, categorias)
             self.assertGreater(len(categorias[group]), 0)
 
-        self.assertGreaterEqual(len(localidades), 8)
+        self.assertEqual([l['nombre'] for l in localidades], ['Osorno', 'Río Negro', 'San Pablo'])
         self.assertIsInstance(personas, list)
         self.assertIsInstance(seguimientos, list)
         self.assertEqual(meta['app'], 'senasconecta')
