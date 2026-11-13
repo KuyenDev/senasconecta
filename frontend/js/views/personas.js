@@ -4,12 +4,9 @@
 
 import { apiFetch } from '../api.js';
 import {
-  openConfirmDialog,
   openPersonDetailModal,
-  openPersonFormModal,
   renderEmptyState,
   renderLoading,
-  showToast,
 } from '../components.js';
 import { state } from '../state.js';
 import {
@@ -27,7 +24,6 @@ export async function renderPersonasView(container) {
   const filters = {
     q: state.personasFilterPreset?.q || '',
     localidad_id: state.personasFilterPreset?.localidad_id || '',
-    congregacion_id: state.personasFilterPreset?.congregacion_id || '',
     estado: state.personasFilterPreset?.estado || '',
     usa_lsch: state.personasFilterPreset?.usa_lsch || '',
     sort: 'fecha_actualizacion',
@@ -120,7 +116,6 @@ export async function renderPersonasView(container) {
           Object.assign(filters, {
             q: '',
             localidad_id: '',
-            congregacion_id: '',
             estado: '',
             usa_lsch: '',
             sort: 'fecha_actualizacion',
@@ -146,7 +141,6 @@ export async function renderPersonasView(container) {
     const params = new URLSearchParams();
     if (filters.q) params.set('q', filters.q);
     if (filters.localidad_id) params.set('localidad_id', filters.localidad_id);
-    if (filters.congregacion_id) params.set('congregacion_id', filters.congregacion_id);
     if (filters.estado) params.set('estado', filters.estado);
     if (filters.usa_lsch) params.set('usa_lsch', filters.usa_lsch);
     params.set('sort', filters.sort);
@@ -178,38 +172,20 @@ export async function renderPersonasView(container) {
         {},
         el('h2', { className: 'card-title', text: `Personas registradas (${total})` }),
         el('p', { className: 'card-subtitle', text: 'Haz clic en cualquier nombre para consultar su ficha completa y seguimientos' })
-      ),
-      state.authenticated
-        ? el('button', {
-            type: 'button',
-            className: 'btn btn-primary btn-sm',
-            text: '+ Nueva persona',
-            onClick: () => openPersonFormModal(null, () => loadTable()),
-          })
-        : null
+      )
     );
     listCard.appendChild(header);
 
     if (!items.length) {
       const hasFilters = Boolean(
-        filters.q || filters.localidad_id || filters.congregacion_id || filters.estado || filters.usa_lsch
+        filters.q || filters.localidad_id || filters.estado || filters.usa_lsch
       );
       listCard.appendChild(
         renderEmptyState(
           hasFilters ? 'Sin coincidencias para los filtros aplicados' : 'No hay personas registradas todavía',
           hasFilters
             ? 'Prueba limpiando o combinando otros criterios de búsqueda.'
-            : state.authenticated
-              ? 'Agrega el primer registro territorial con consentimiento para comenzar a organizar las fichas.'
-              : 'Todavía no existen registros publicados para consultar.',
-          hasFilters || !state.authenticated
-            ? null
-            : el('button', {
-                type: 'button',
-                className: 'btn btn-primary',
-                text: '+ Agregar primera persona',
-                onClick: () => openPersonFormModal(null, () => loadTable()),
-              })
+            : 'Todavía no existen registros publicados. Agrega tus archivos Excel en datos_excel/ y ejecuta python3 scripts/importar_excel.py.'
         )
       );
       return;
@@ -288,34 +264,8 @@ export async function renderPersonasView(container) {
                 type: 'button',
                 className: 'btn btn-outline btn-xs',
                 text: 'Ver ficha',
-                onClick: () => openPersonDetailModal(p.id, () => loadTable()),
-              }),
-              state.authenticated
-                ? el('button', {
-                    type: 'button',
-                    className: 'btn btn-secondary btn-xs',
-                    text: 'Editar',
-                    onClick: () => openPersonFormModal(p, () => loadTable()),
-                  })
-                : null,
-              state.authenticated
-                ? el('button', {
-                    type: 'button',
-                    className: 'btn btn-ghost-danger btn-xs',
-                    text: 'Eliminar',
-                    onClick: () =>
-                      openConfirmDialog({
-                        title: 'Eliminar persona',
-                        message: `¿Confirmas eliminar el registro de ${fullName(p)} (${p.codigo_interno})?`,
-                        confirmLabel: 'Eliminar',
-                        onConfirm: async () => {
-                          await apiFetch(`/api/personas/${p.id}`, { method: 'DELETE' });
-                          showToast('Persona eliminada correctamente.', 'success');
-                          loadTable();
-                        },
-                      }),
-                  })
-                : null
+                onClick: () => openPersonDetailModal(p.id),
+              })
             )
           )
         );

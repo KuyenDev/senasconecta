@@ -1,0 +1,174 @@
+{
+  "estado_registro": [
+    {
+      "clave": "confirmado",
+      "etiqueta": "Confirmado",
+      "orden": 1,
+      "activa": 1
+    },
+    {
+      "clave": "pendiente_actualizacion",
+      "etiqueta": "Pendiente de actualización",
+      "orden": 2,
+      "activa": 1
+    },
+    {
+      "clave": "por_confirmar",
+      "etiqueta": "Por confirmar",
+      "orden": 3,
+      "activa": 1
+    },
+    {
+      "clave": "requiere_visita",
+      "etiqueta": "Requiere visita",
+      "orden": 4,
+      "activa": 1
+    },
+    {
+      "clave": "inactivo",
+      "etiqueta": "Inactivo / Trasladado",
+      "orden": 5,
+      "activa": 1
+    }
+  ],
+  "medio_comunicacion": [
+    {
+      "clave": "lsch",
+      "etiqueta": "Lengua de Señas Chilena (LSCh)",
+      "orden": 1,
+      "activa": 1
+    },
+    {
+      "clave": "escrito",
+      "etiqueta": "Comunicación escrita",
+      "orden": 2,
+      "activa": 1
+    },
+    {
+      "clave": "lectura_labial",
+      "etiqueta": "Lectura labial",
+      "orden": 3,
+      "activa": 1
+    },
+    {
+      "clave": "bimodal",
+      "etiqueta": "Bimodal / Mixto",
+      "orden": 4,
+      "activa": 1
+    },
+    {
+      "clave": "senas_caseras",
+      "etiqueta": "Señas familiares o naturales",
+      "orden": 5,
+      "activa": 1
+    },
+    {
+      "clave": "videollamada",
+      "etiqueta": "Videollamada en señas",
+      "orden": 6,
+      "activa": 1
+    },
+    {
+      "clave": "otro",
+      "etiqueta": "Otro medio",
+      "orden": 7,
+      "activa": 1
+    }
+  ],
+  "nivel_lsch": [
+    {
+      "clave": "basico",
+      "etiqueta": "Básico",
+      "orden": 1,
+      "activa": 1
+    },
+    {
+      "clave": "intermedio",
+      "etiqueta": "Intermedio",
+      "orden": 2,
+      "activa": 1
+    },
+    {
+      "clave": "avanzado",
+      "etiqueta": "Avanzado",
+      "orden": 3,
+      "activa": 1
+    },
+    {
+      "clave": "nativo",
+      "etiqueta": "Fluido / Nativo",
+      "orden": 4,
+      "activa": 1
+    },
+    {
+      "clave": "no_aplica",
+      "etiqueta": "No utiliza LSCh",
+      "orden": 5,
+      "activa": 1
+    }
+  ],
+  "tipo_seguimiento": [
+    {
+      "clave": "visita_realizada",
+      "etiqueta": "Visita realizada",
+      "orden": 1,
+      "activa": 1
+    },
+    {
+      "clave": "visita_pendiente",
+      "etiqueta": "Visita pendiente",
+      "orden": 2,
+      "activa": 1
+    },
+    {
+      "clave": "confirmar_info",
+      "etiqueta": "Información por confirmar",
+      "orden": 3,
+      "activa": 1
+    },
+    {
+      "clave": "info_desactualizada",
+      "etiqueta": "Información desactualizada",
+      "orden": 4,
+      "activa": 1
+    },
+    {
+      "clave": "necesidad_interpretacion",
+      "etiqueta": "Necesidad de interpretación",
+      "orden": 5,
+      "activa": 1
+    },
+    {
+      "clave": "proxima_accion",
+      "etiqueta": "Próxima acción",
+      "orden": 6,
+      "activa": 1
+    }
+  ],
+  "estado_seguimiento": [
+    {
+      "clave": "pendiente",
+      "etiqueta": "Pendiente",
+      "orden": 1,
+      "activa": 1
+    },
+    {
+      "clave": "en_curso",
+      "etiqueta": "En curso",
+      "orden": 2,
+      "activa": 1
+    },
+    {
+      "clave": "completado",
+      "etiqueta": "Completado",
+      "orden": 3,
+      "activa": 1
+    },
+    {
+      "clave": "cancelado",
+      "etiqueta": "Cancelado",
+      "orden": 4,
+      "activa": 1
+    }
+  ]
+}

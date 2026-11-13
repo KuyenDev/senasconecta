@@ -1,108 +1,77 @@
-# SeñasConecta
+# SeñasConecta · Grupo Señas Osorno
 
-> *«Conectando personas, acercando corazones.»*
+> *"Conectando personas, acercando corazones."*
 
-**SeñasConecta** (`senasconecta`) es una aplicación web diseñada para la consulta, el registro, la organización y el seguimiento territorial de personas sordas, apoyando la labor de comunicación y coordinación en Lengua de Señas Chilena (**LSCh**) y otros medios de comunicación preferidos.
+**SeñasConecta** es una aplicación web **100 % estática** diseñada para organizar y consultar de forma clara la información territorial de personas sordas vinculada al **Grupo Señas Osorno**, sus localidades, sectores, preferencias de comunicación en Lengua de Señas Chilena (LSCh) y seguimientos territoriales.
 
-Nace para apoyar la labor del **Grupo Señas Osorno** con un enfoque territorial claro y adaptable que organiza distintas localidades y sectores del sur de Chile (con soporte opcional en el backend para sumar otras congregaciones en el futuro si se requiere).
+Funciona sin servidor ni base de datos externa ni inicio de sesión: lee directamente archivos JSON estáticos (`frontend/data/*.json`) generados desde tus planillas Excel en `datos_excel/`, por lo que se despliega directo en **GitHub Pages** y también funciona de inmediato en servidores locales como Live Server o `python3 -m http.server`.
 
-## Características principales
+---
 
-- **Acceso abierto en modo lectura y administración única por GitHub:** cualquier persona puede ingresar directamente para consultar paneles, fichas, localidades y sectores, seguimientos, mapa y estadísticas; la autenticación mediante GitHub OAuth es exclusiva del administrador autorizado para agregar, editar, eliminar, configurar o gestionar respaldos.
-- **Panel principal (Dashboard):** totales dinámicos desde la base de datos, personas que utilizan LSCh o prefieren comunicación escrita, estado de los registros, seguimientos pendientes, distribución por localidad y actividad reciente.
-- **Registro de personas:** fichas completas con identificador interno único (`SC-xxxx`), búsqueda por nombre/código/sector, filtros combinables, ordenamiento, preferencias de comunicación (sin asumir que todas las personas usan LSCh) y confirmación de consentimiento.
-- **Localidades y sectores:** gestión territorial enfocada en el Grupo Señas Osorno (agregar, editar, activar o desactivar localidades y consultar sectores y fichas asociadas; la API mantiene el módulo de congregaciones disponible para una eventual ampliación futura).
-- **Seguimiento territorial:** registro de visitas realizadas o pendientes, confirmaciones, necesidades de interpretación y próximas acciones, vinculadas a personas o a localidades.
-- **Mapa territorial opcional:** explorador de localidades y sectores basado en filtros territoriales (funcional sin coordenadas ni mapa externo) más integración opcional con Leaflet y OpenStreetMap utilizando únicamente centros referenciales de localidad (nunca domicilios personales).
-- **Estadísticas transparentes:** desglose territorial y de comunicación con tratamiento explícito de datos faltantes para evitar porcentajes engañosos.
-- **Respaldos locales (administración):** exportación en CSV (UTF-8 BOM con protección contra inyección de fórmulas) y JSON, e importación JSON con vista previa, validación de estructura, prevención de duplicados y confirmación previa.
-- **Seguridad de único administrador:** autenticación exclusiva mediante GitHub OAuth validada en Cloudflare Workers, comparación por `ADMIN_GITHUB_ID`, sesiones por cookie `HttpOnly` almacenadas mediante hash SHA-256 en Cloudflare D1 y protección CSRF/CORS en todas las operaciones de escritura.
-
-## Arquitectura tecnológica
-
-| Capa | Tecnología | Propósito |
-| --- | --- | --- |
-| Frontend | HTML5, CSS3 y JavaScript puro (ES Modules) | Interfaz estática responsive alojable en GitHub Pages |
-| Backend | Cloudflare Workers (JavaScript) | API REST, flujo GitHub OAuth, control de acceso en escritura y validaciones |
-| Base de datos | Cloudflare D1 (SQLite) | Almacenamiento normalizado y sesiones hasheadas |
-
-## Estructura del proyecto
+## Cómo se organiza el proyecto
 
 ```text
-senasconecta/
-  .github/workflows/
-    deploy-pages.yml          # Publicación automática opcional del frontend en GitHub Pages
-  frontend/
-    index.html
-    css/styles.css
-    assets/
-      logo.svg
-      favicon.svg
-    js/
-      config.js               # URL pública del Cloudflare Worker (sin secretos)
-      app.js
-      api.js
-      auth.js
-      charts.js
-      components.js
-      state.js
-      utils.js
-      views/
-        dashboard.js
-        personas.js
-        territorio.js
-        seguimientos.js
-        mapa.js
-        estadisticas.js
-        respaldos.js
-  worker/
-    src/
-      index.js
-      auth.js
-      database.js
-      validation.js
-      utils.js
-      middleware/
-        auth.js
-        cors.js
-        rateLimit.js
-        security.js
-      routes/
-        auth.js
-        configuracion.js
-        congregaciones.js
-        dashboard.js
-        estadisticas.js
-        localidades.js
-        personas.js
-        respaldos.js
-        seguimientos.js
-    migrations/
-      0001_initial.sql
-      0002_seed_defaults.sql
-    wrangler.toml
-    .dev.vars.example
-    package.json
-  scripts/
-    dev_local.py              # Entorno local persistente sin Node/Wrangler
-  tests/                      # Pruebas automatizadas y entorno de ejecución local
-  docs/
-    INSTALL.md                # Instalación y pruebas locales
-    DEPLOYMENT.md             # Guía paso a paso para GitHub Pages, Cloudflare Worker, D1 y OAuth
-    SECURITY.md               # Modelo de seguridad, cookies entre dominios y privacidad
+señasConecta/
+├── datos_excel/
+│   ├── README.md                    # Guía rápida de columnas y hojas Excel
+│   └── plantilla_senasconecta.xlsx  # Plantilla vacía lista para llenar
+├── docs/
+│   ├── INSTALL.md                   # Uso diario, importación Excel y vista local
+│   └── DEPLOYMENT.md                # Publicación paso a paso en GitHub Pages
+├── frontend/                        # Sitio web estático completo (GitHub Pages)
+│   ├── .nojekyll
+│   ├── index.html
+│   ├── assets/
+│   ├── css/styles.css
+│   ├── data/                        # Base de datos JSON servida por GitHub Pages
+│   │   ├── categorias.json
+│   │   ├── localidades.json
+│   │   ├── personas.json
+│   │   ├── seguimientos.json
+│   │   └── meta.json
+│   └── js/
+├── scripts/
+│   └── importar_excel.py            # Convierte Excel (.xlsx / .csv) a JSON
+├── tests/                           # Pruebas unitarias, importador Excel y E2E
+└── .github/workflows/deploy-pages.yml
 ```
 
-## Uso rápido en desarrollo local
+---
+
+## Flujo de actualización con Excel
+
+1. Coloca o actualiza tus archivos `.xlsx` o `.csv` dentro de la carpeta [datos_excel/](datos_excel/README.md) (puedes partir copiando o llenando `plantilla_senasconecta.xlsx`).
+2. Integra los datos hacia los JSON del sitio ejecutando en la raíz del proyecto:
 
 ```bash
-python3 scripts/dev_local.py
+python3 scripts/importar_excel.py
 ```
 
-Esto levanta la base SQLite persistente en `.local/senasconecta.sqlite`, el Worker en `http://127.0.0.1:8787` (compatible también con Live Server en `:5500`) y el frontend en `http://127.0.0.1:8080/`.
+- Por defecto el script **integra y actualiza** sin duplicar registros existentes (emparejando por `codigo_interno` o por `nombre + apellido + localidad`).
+- Si quieres reemplazar por completo la lista desde cero usando únicamente las planillas presentes en `datos_excel/`, usa:
 
-## Documentación
+```bash
+python3 scripts/importar_excel.py --replace
+```
 
-- [Guía de instalación y pruebas locales](docs/INSTALL.md)
-- [Guía completa de despliegue en producción](docs/DEPLOYMENT.md)
-- [Arquitectura de seguridad, OAuth y privacidad](docs/SECURITY.md)
+3. Sube los cambios a GitHub (`git add . && git commit -m "Actualizar datos" && git push`) para que **GitHub Pages** publique automáticamente los JSON actualizados.
 
+---
+
+## Vista local y pruebas
+
+Para probar localmente:
+
+```bash
+python3 -m http.server 8000 --directory frontend
+```
+
+Y abre `http://127.0.0.1:8000/` en tu navegador (o usa **Live Server** sobre el proyecto apuntando a `frontend/`).
+
+Para ejecutar toda la batería de pruebas automatizadas:
+
+```bash
+python3 tests/test_excel_importer.py
+python3 tests/test_frontend_and_units.py
+python3 tests/test_frontend_e2e.py
+```

@@ -4,12 +4,9 @@
 
 import { apiFetch } from '../api.js';
 import {
-  openConfirmDialog,
   openPersonDetailModal,
-  openSeguimientoFormModal,
   renderEmptyState,
   renderLoading,
-  showToast,
 } from '../components.js';
 import { state } from '../state.js';
 import {
@@ -129,15 +126,7 @@ export async function renderSeguimientosView(container) {
           {},
           el('h2', { className: 'card-title', text: `Seguimiento territorial (${items.length})` }),
           el('p', { className: 'card-subtitle', text: 'Visitas, confirmaciones de datos, necesidades de interpretación y próximas acciones' })
-        ),
-        state.authenticated
-          ? el('button', {
-              type: 'button',
-              className: 'btn btn-primary btn-sm',
-              text: '+ Nuevo seguimiento',
-              onClick: () => openSeguimientoFormModal(null, () => loadSeguimientos()),
-            })
-          : null
+        )
       )
     );
 
@@ -145,23 +134,12 @@ export async function renderSeguimientosView(container) {
       listCard.appendChild(
         renderEmptyState(
           'Sin seguimientos para mostrar',
-          state.authenticated
-            ? 'Registra visitas realizadas, pendientes, necesidades de interpretación o acciones próximas para coordinar el apoyo.'
-            : 'No hay registros de seguimiento territorial con los criterios seleccionados.',
-          state.authenticated
-            ? el('button', {
-                type: 'button',
-                className: 'btn btn-primary',
-                text: '+ Registrar seguimiento',
-                onClick: () => openSeguimientoFormModal(null, () => loadSeguimientos()),
-              })
-            : null
+          'No hay registros de seguimiento territorial con los criterios seleccionados.'
         )
       );
       return;
     }
 
-    const isAdmin = Boolean(state.authenticated);
     const table = el(
       'table',
       { className: 'data-table' },
@@ -175,8 +153,7 @@ export async function renderSeguimientosView(container) {
           el('th', { scope: 'col', text: 'Tipo' }),
           el('th', { scope: 'col', text: 'Persona / Localidad' }),
           el('th', { scope: 'col', text: 'Descripción' }),
-          el('th', { scope: 'col', text: 'Estado' }),
-          isAdmin ? el('th', { scope: 'col', text: 'Acciones' }) : null
+          el('th', { scope: 'col', text: 'Estado' })
         )
       ),
       el(
@@ -198,7 +175,7 @@ export async function renderSeguimientosView(container) {
                       type: 'button',
                       className: 'activity-title',
                       style: { background: 'none', border: 0, padding: 0, cursor: 'pointer', textDecoration: 'underline', textAlign: 'left' },
-                      onClick: () => openPersonDetailModal(s.persona_id, () => loadSeguimientos()),
+                      onClick: () => openPersonDetailModal(s.persona_id),
                     },
                     `${fullName({ nombre: s.persona_nombre, apellido: s.persona_apellido })} (${s.persona_codigo || ''})`
                   )
@@ -213,58 +190,7 @@ export async function renderSeguimientosView(container) {
                 getCategoryLabel(state.categorias, 'estado_seguimiento', s.estado, s.estado),
                 getStatusBadgeClass(s.estado)
               )
-            ),
-            isAdmin
-              ? el(
-                  'td',
-                  {},
-                  el(
-                    'div',
-                    { className: 'row-actions' },
-                    s.estado !== 'completado'
-                      ? el('button', {
-                          type: 'button',
-                          className: 'btn btn-outline btn-xs',
-                          text: 'Completar',
-                          onClick: async () => {
-                            try {
-                              await apiFetch(`/api/seguimientos/${s.id}`, {
-                                method: 'PUT',
-                                body: { estado: 'completado' },
-                              });
-                              showToast('Seguimiento marcado como completado.', 'success');
-                              loadSeguimientos();
-                            } catch (err) {
-                              showToast(err.message, 'error');
-                            }
-                          },
-                        })
-                      : null,
-                    el('button', {
-                      type: 'button',
-                      className: 'btn btn-secondary btn-xs',
-                      text: 'Editar',
-                      onClick: () => openSeguimientoFormModal(s, () => loadSeguimientos()),
-                    }),
-                    el('button', {
-                      type: 'button',
-                      className: 'btn btn-ghost-danger btn-xs',
-                      text: 'Eliminar',
-                      onClick: () =>
-                        openConfirmDialog({
-                          title: 'Eliminar seguimiento',
-                          message: '¿Seguro que deseas eliminar este registro de seguimiento?',
-                          confirmLabel: 'Eliminar',
-                          onConfirm: async () => {
-                            await apiFetch(`/api/seguimientos/${s.id}`, { method: 'DELETE' });
-                            showToast('Seguimiento eliminado.', 'success');
-                            loadSeguimientos();
-                          },
-                        }),
-                    })
-                  )
-                )
-              : null
+            )
           )
         )
       )

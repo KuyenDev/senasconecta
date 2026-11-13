@@ -6,8 +6,6 @@ import { apiFetch } from '../api.js';
 import { renderHorizontalBarChart } from '../charts.js';
 import {
   openPersonDetailModal,
-  openPersonFormModal,
-  openSeguimientoFormModal,
   renderEmptyState,
   renderLoading,
 } from '../components.js';
@@ -107,25 +105,15 @@ export async function renderDashboardView(container, { navigateTo }) {
         'div',
         { className: 'card' },
         renderEmptyState(
-          state.authenticated ? 'Comienza organizando tu territorio' : 'Territorio sin personas registradas aún',
-          state.authenticated
-            ? 'Aún no hay personas registradas en SeñasConecta para el Grupo Señas Osorno. Puedes agregar el primer registro o revisar las localidades configuradas.'
-            : 'Aún no hay personas registradas en SeñasConecta. Puedes consultar las localidades y sectores disponibles.',
+          'Territorio sin personas registradas aún',
+          'Aún no hay personas integradas en los datos JSON del Grupo Señas Osorno. Coloca tus planillas Excel en datos_excel/ y ejecuta python3 scripts/importar_excel.py.',
           el(
             'div',
             { style: { display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' } },
-            state.authenticated
-              ? el('button', {
-                  type: 'button',
-                  className: 'btn btn-primary',
-                  text: '+ Registrar primera persona',
-                  onClick: () => openPersonFormModal(null, () => renderDashboardView(container, { navigateTo })),
-                })
-              : null,
             el('button', {
               type: 'button',
               className: 'btn btn-outline',
-              text: state.authenticated ? 'Organizar localidades y sectores' : 'Ver localidades y sectores',
+              text: 'Ver localidades y sectores',
               onClick: () => navigateTo('territorio'),
             })
           )
@@ -262,15 +250,7 @@ export async function renderDashboardView(container, { navigateTo }) {
     el(
       'div',
       { className: 'card-header' },
-      el('h2', { className: 'card-title', text: 'Últimas modificaciones' }),
-      state.authenticated
-        ? el('button', {
-            type: 'button',
-            className: 'btn btn-outline btn-xs',
-            text: '+ Seguimiento',
-            onClick: () => openSeguimientoFormModal(null, () => renderDashboardView(container, { navigateTo })),
-          })
-        : null
+      el('h2', { className: 'card-title', text: 'Últimas modificaciones' })
     ),
     el(
       'div',

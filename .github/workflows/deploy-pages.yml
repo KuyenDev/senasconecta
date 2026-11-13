@@ -1,4 +1,4 @@
-name: Desplegar Frontend en GitHub Pages
+name: Desplegar SeñasConecta en GitHub Pages
 
 on:
   push:
@@ -28,37 +28,13 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Preparar paquete estático para GitHub Pages
-        env:
-          SENASCONECTA_API_URL: ${{ vars.SENASCONECTA_API_URL }}
-        run: |
-          rm -rf _pages_dist
-          cp -R frontend _pages_dist
-          python3 - <<'PY'
-          import json, os, pathlib, re
-
-          api_url = os.environ.get("SENASCONECTA_API_URL", "").strip().rstrip("/")
-          if api_url:
-              cfg_path = pathlib.Path("_pages_dist/js/config.js")
-              text = cfg_path.read_text(encoding="utf-8")
-              updated, count = re.subn(
-                  r"(API_BASE_URL:\s*)['\"][^'\"]*['\"]",
-                  lambda m: f"{m.group(1)}{json.dumps(api_url)}",
-                  text,
-                  count=1,
-              )
-              if count != 1:
-                  raise SystemExit("No se pudo actualizar API_BASE_URL en config.js")
-              cfg_path.write_text(updated, encoding="utf-8")
-          PY
-
       - name: Configurar Pages
         uses: actions/configure-pages@v5
 
       - name: Empaquetar frontend estático
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "_pages_dist"
+          path: "frontend"
 
       - name: Publicar en GitHub Pages
         id: deployment

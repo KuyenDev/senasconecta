@@ -37,12 +37,12 @@ export async function renderEstadisticasView(container, { navigateTo }) {
         { className: 'card' },
         renderEmptyState(
           'Aún no hay suficientes registros para generar estadísticas',
-          'Cuando registres personas en el territorio, aquí verás el desglose por localidad, congregación, estado y necesidades de comunicación sin porcentajes engañosos.',
+          'Cuando integres personas desde Excel en datos_excel/, aquí verás el desglose por localidad, estado y necesidades de comunicación sin porcentajes engañosos.',
           el('button', {
             type: 'button',
-            className: 'btn btn-primary',
-            text: 'Ir a Personas',
-            onClick: () => navigateTo('personas'),
+            className: 'btn btn-outline',
+            text: 'Ver localidades y sectores',
+            onClick: () => navigateTo('territorio'),
           })
         )
       )
@@ -157,14 +157,8 @@ export async function renderEstadisticasView(container, { navigateTo }) {
     )
   );
 
-  // Tablas detalladas por localidad (y congregación solo si existen datos asociados)
+  // Tabla detallada por localidad
   const locRows = (stats.por_localidad || []).filter((l) => Number(l.total) > 0);
-  const hasAssignedCongregations = (stats.por_congregacion || []).some(
-    (c) => c.id !== null && Number(c.total) > 0
-  );
-  const congRows = hasAssignedCongregations
-    ? (stats.por_congregacion || []).filter((c) => Number(c.total) > 0)
-    : [];
 
   const locDetailCard = el(
     'section',
@@ -210,57 +204,6 @@ export async function renderEstadisticasView(container, { navigateTo }) {
     )
   );
 
-  if (congRows.length > 0) {
-    container.appendChild(
-      el(
-        'div',
-        { className: 'grid-2' },
-        locDetailCard,
-        el(
-          'section',
-          { className: 'card' },
-          el('div', { className: 'card-header' }, el('h2', { className: 'card-title', text: 'Detalle por congregación' })),
-          el(
-            'div',
-            { className: 'table-wrap' },
-            el(
-              'table',
-              { className: 'data-table' },
-              el(
-                'thead',
-                {},
-                el(
-                  'tr',
-                  {},
-                  el('th', { scope: 'col', text: 'Congregación' }),
-                  el('th', { scope: 'col', text: 'Total' }),
-                  el('th', { scope: 'col', text: 'Confirmados' }),
-                  el('th', { scope: 'col', text: 'Pendientes' }),
-                  el('th', { scope: 'col', text: 'Req. interp.' })
-                )
-              ),
-              el(
-                'tbody',
-                {},
-                congRows.map((c) =>
-                  el(
-                    'tr',
-                    {},
-                    el('td', { text: c.nombre }),
-                    el('td', {}, el('strong', { text: String(c.total) })),
-                    el('td', { text: String(c.confirmados || 0) }),
-                    el('td', { text: String(c.pendientes || 0) }),
-                    el('td', { text: String(c.necesitan_interpretacion || 0) })
-                  )
-                )
-              )
-            )
-          )
-        )
-      )
-    );
-  } else {
-    container.appendChild(locDetailCard);
-  }
+  container.appendChild(locDetailCard);
 }
 

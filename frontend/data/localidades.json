@@ -1,0 +1,90 @@
+[
+  {
+    "id": 1,
+    "nombre": "Osorno",
+    "region": "Región de Los Lagos",
+    "descripcion": "Capital provincial y punto de coordinación territorial amplio.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "nombre": "Río Negro",
+    "region": "Región de Los Lagos",
+    "descripcion": "Localidad y sectores rurales circundantes.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": 3,
+    "nombre": "Purranque",
+    "region": "Región de Los Lagos",
+    "descripcion": "Localidad urbana y localidades vecinas del sur provincial.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": 4,
+    "nombre": "Puerto Octay",
+    "region": "Región de Los Lagos",
+    "descripcion": "Sector lacustre y áreas rurales cercanas.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": 5,
+    "nombre": "San Pablo",
+    "region": "Región de Los Lagos",
+    "descripcion": "Localidad del sector norte provincial.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": 6,
+    "nombre": "Puyehue",
+    "region": "Región de Los Lagos",
+    "descripcion": "Entre Lagos y sectores cordilleranos de la comuna.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": 7,
+    "nombre": "San Juan de la Costa",
+    "region": "Región de Los Lagos",
+    "descripcion": "Sectores costeros y comunidades rurales.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": 8,
+    "nombre": "Río Bueno",
+    "region": "Región de Los Ríos",
+    "descripcion": "Localidad vecina con vinculación territorial.",
+    "latitud": null,
+    "longitud": null,
+    "activa": 1,
+    "fecha_creacion": "2026-01-01T00:00:00.000Z",
+    "fecha_actualizacion": "2026-01-01T00:00:00.000Z"
+  }
+]

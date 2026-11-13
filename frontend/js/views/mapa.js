@@ -3,7 +3,7 @@
  */
 
 import { apiFetch } from '../api.js';
-import { openLocalidadFormModal, renderLoading, showToast } from '../components.js';
+import { renderLoading, showToast } from '../components.js';
 import { state } from '../state.js';
 import { clearNode, createBadge, el } from '../utils.js';
 
@@ -173,14 +173,6 @@ export async function renderMapaView(container, { navigateTo }) {
             el(
               'div',
               { className: 'row-actions' },
-              state.authenticated
-                ? el('button', {
-                    type: 'button',
-                    className: 'btn btn-outline btn-xs',
-                    text: hasCoord ? 'Ajustar centro' : 'Definir centro',
-                    onClick: () => openLocalidadFormModal(loc, () => renderMapaView(container, { navigateTo })),
-                  })
-                : null,
               el('button', {
                 type: 'button',
                 className: 'btn btn-secondary btn-xs',
@@ -220,9 +212,8 @@ export async function renderMapaView(container, { navigateTo }) {
 
   btnEnableMap.addEventListener('click', async () => {
     if (!withCoords.length) {
-      mapStatus.textContent = state.authenticated
-        ? 'Ninguna localidad tiene coordenadas referenciales configuradas todavía. Define el centro aproximado de al menos una localidad (por ejemplo desde "Definir centro" arriba) para visualizarla en el mapa sin inventar ubicaciones.'
-        : 'Ninguna localidad tiene coordenadas referenciales configuradas todavía. El administrador puede definir el centro aproximado de cada localidad para habilitar su visualización en el mapa.';
+      mapStatus.textContent =
+        'Ninguna localidad tiene coordenadas referenciales configuradas todavía. Puedes agregar columnas latitud y longitud en la hoja "Localidades" de tu archivo Excel en datos_excel/.';
       mapStatus.classList.remove('hidden');
       return;
     }

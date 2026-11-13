@@ -1,94 +1,59 @@
-# Guía de instalación y desarrollo local — SeñasConecta
+# Guía de uso local e integración de Excel
 
-Esta guía detalla cómo preparar el proyecto localmente, inicializar la base de datos y ejecutar pruebas.
-
-## 1. Requisitos recomendados para desarrollo y despliegue en Cloudflare
-
-Para desplegar hacia Cloudflare Workers y D1 necesitarás en tu equipo:
-
-- **Git**
-- **Node.js** (v20 LTS o superior) y **npm**
-- **Wrangler CLI** (`npm install -D wrangler` dentro de `worker/`, o `npx wrangler`)
-- Una cuenta gratuita o de pago en **Cloudflare**
-- Una cuenta de **GitHub** (será el único administrador autorizado)
-
-> **Uso rápido en local sin Node.js ni Wrangler:** Puedes ejecutar todo el proyecto localmente (frontend, Worker real `worker/src/index.js`, base SQLite persistente en `.local/senasconecta.sqlite` y simulador OAuth) con un solo comando:
->
-> ```bash
-> python3 scripts/dev_local.py
-> ```
->
-> Luego abre `http://127.0.0.1:8080/` (o si usas Live Server en `http://127.0.0.1:5500/frontend/index.html`, se conectará automáticamente al Worker local en `:8787` mientras `dev_local.py` esté en ejecución).
+SeñasConecta no requiere Node.js, bases de datos ni cuentas de usuario para ejecutarse. Toda la aplicación es HTML/CSS/JavaScript estático que consume archivos JSON ubicados en `frontend/data/`.
 
 ---
 
-## 2. Configuración local con Wrangler (Cloudflare D1 local)
+## 1. Requisitos
 
-1. Instala las herramientas de desarrollo del Worker:
-
-```bash
-cd worker
-npm install
-```
-
-2. Crea el archivo local de secretos (ignorado por Git):
-
-```bash
-cp .dev.vars.example .dev.vars
-```
-
-Edita `worker/.dev.vars` con valores reales de una **GitHub OAuth App de desarrollo** (callback apuntando a `http://127.0.0.1:8787/auth/callback`):
-
-```ini
-GITHUB_CLIENT_ID=tu_client_id_de_desarrollo
-GITHUB_CLIENT_SECRET=tu_client_secret_de_desarrollo
-ADMIN_GITHUB_ID=tu_id_numerico_de_github
-SESSION_PEPPER=genera_una_cadena_aleatoria_larga
-```
-
-3. En `worker/wrangler.toml`, asegúrate de ajustar temporalmente para desarrollo local (o mediante `--var` al ejecutar `wrangler dev`):
-
-- `FRONTEND_URL = "http://127.0.0.1:8080"`
-- `ALLOWED_ORIGINS = "http://127.0.0.1:8080"`
-
-4. Aplica las migraciones en la base D1 local de Wrangler:
-
-```bash
-npx wrangler d1 migrations apply senasconecta-db --local
-```
-
-5. Inicia el Worker local:
-
-```bash
-npx wrangler dev --port 8787
-```
-
-6. En otra terminal, configura temporalmente `API_BASE_URL` en `frontend/js/config.js` a `'http://127.0.0.1:8787'` y sirve el frontend estático:
-
-```bash
-cd frontend
-python3 -m http.server 8080 --bind 127.0.0.1
-```
-
-7. Abre `http://127.0.0.1:8080` en tu navegador.
+- **Python 3** (incluido por defecto en Linux/macOS; se usa únicamente para ejecutar `scripts/importar_excel.py`, servir en local y correr las pruebas — no necesita instalar paquetes externos).
+- Un navegador moderno o editor como VS Code con **Live Server**.
 
 ---
 
-## 3. Ejecución de la suite de pruebas automatizadas locales
+## 2. Abrir la página en local
 
-Si deseas ejecutar las pruebas de integración (autenticación OAuth simulada, rechazo de otras cuentas, expiración de sesión, CSRF, CORS, CRUD completo, estadísticas y respaldos CSV/JSON):
-
-Requisitos en Linux: `python3` (con `sqlite3` y `httpx`) y `gjs`.
+En la raíz del repositorio:
 
 ```bash
-python3 tests/test_worker_integration.py
-python3 tests/test_frontend_and_units.py
-python3 tests/test_frontend_e2e.py
+python3 -m http.server 8000 --directory frontend
 ```
 
-Para desarrollo diario persistente (guarda datos en `.local/senasconecta.sqlite` e incluye simulador de GitHub OAuth, o `--real-oauth` para usar `worker/.dev.vars`):
+Luego abre `http://127.0.0.1:8000/` en el navegador.
+
+> **Importante:** No abras `frontend/index.html` haciendo doble clic (`file://`), porque los navegadores bloquean la carga de módulos JavaScript y archivos `.json` por razones de seguridad. Usa `python3 -m http.server`, Live Server o GitHub Pages.
+
+---
+
+## 3. Integrar planillas Excel (.xlsx / .csv)
+
+1. Abre o copia `datos_excel/plantilla_senasconecta.xlsx`, o agrega tus propios archivos `.xlsx` / `.csv` dentro de `datos_excel/`.
+2. Consulta el detalle de hojas (`Personas`, `Localidades`, `Seguimientos`) y columnas admitidas en [`datos_excel/README.md`](../datos_excel/README.md).
+3. Ejecuta:
 
 ```bash
-python3 scripts/dev_local.py
+python3 scripts/importar_excel.py
 ```
 
+El script lee todas las planillas de `datos_excel/`, normaliza fechas, valores `Sí/No` y nombres de localidades, y actualiza:
+- `frontend/data/localidades.json`
+- `frontend/data/personas.json`
+- `frontend/data/seguimientos.json`
+- `frontend/data/categorias.json`
+- `frontend/data/meta.json`
+
+### Regenerar la plantilla vacía
+
+Si alguna vez borras o modificas `datos_excel/plantilla_senasconecta.xlsx`, puedes volver a crearla sin perder datos ejecutando:
+
+```bash
+python3 scripts/importar_excel.py --crear-plantilla
+```
+
+### Reemplazar todo desde Excel
+
+Si prefieres que `personas.json`, `localidades.json` (conservando las 8 localidades base si no se redefinen) y `seguimientos.json` se regeneren desde cero únicamente con lo que haya en `datos_excel/`:
+
+```bash
+python3 scripts/importar_excel.py --replace
+```

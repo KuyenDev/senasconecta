@@ -107,7 +107,21 @@ export function installWorkerGlobals() {
         if (full.startsWith('/')) {
           full = `${b.origin}${full}`;
         } else {
-          full = `${b.origin}/${full}`;
+          const baseDir = b.pathname.endsWith('/')
+            ? b.pathname
+            : b.pathname.slice(0, b.pathname.lastIndexOf('/') + 1) || '/';
+          const pathOnly = full.split('?')[0].split('#')[0];
+          const segments = baseDir.split('/').filter(Boolean);
+          for (const seg of pathOnly.split('/')) {
+            if (!seg || seg === '.') continue;
+            if (seg === '..') segments.pop();
+            else segments.push(seg);
+          }
+          const qIdx = full.indexOf('?');
+          const hIdx = full.indexOf('#');
+          const suffixIdx = qIdx >= 0 && hIdx >= 0 ? Math.min(qIdx, hIdx) : Math.max(qIdx, hIdx);
+          const suffix = suffixIdx >= 0 ? full.slice(suffixIdx) : '';
+          full = `${b.origin}/${segments.join('/')}${suffix}`;
         }
       }
       const match = /^(https?):\/\/([^/:?#]+)(?::(\d+))?(\/[^?#]*)?(\?[^#]*)?(#.*)?$/i.exec(full);
@@ -279,7 +293,11 @@ export function installWorkerGlobals() {
 
   globalThis.fetch = async (url, init = {}) => {
     const method = (init.method || 'GET').toUpperCase();
-    const msg = Soup.Message.new(method, String(url));
+    const rawUrl = String(url);
+    const resolvedUrl = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(rawUrl)
+      ? rawUrl
+      : new PolyURL(rawUrl, globalThis.location?.href || globalThis.window?.location?.href).href;
+    const msg = Soup.Message.new(method, resolvedUrl);
     const reqHeaders = new PolyHeaders(init.headers || {});
     let contentType = 'application/json';
     for (const [k, v] of reqHeaders.entries()) {
@@ -308,44 +326,6 @@ export function installWorkerGlobals() {
       status: msg.get_status(),
       headers: respHeaders,
     });
-  };
-}
-
-export function createD1Bridge(dbRpcUrl) {
-  async function rpc(payload) {
-    const res = await globalThis.fetch(dbRpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`D1 RPC error (${res.status}): ${errText}`);
-    }
-    return await res.json();
-  }
-
-  return {
-    prepare(sql) {
-      let boundParams = [];
-      const stmt = {
-        bind(...params) {
-          boundParams = params;
-          return stmt;
-        },
-        async all() {
-          return await rpc({ sql, params: boundParams, mode: 'all' });
-        },
-        async first() {
-          const out = await rpc({ sql, params: boundParams, mode: 'first' });
-          return out.result ?? null;
-        },
-        async run() {
-          return await rpc({ sql, params: boundParams, mode: 'run' });
-        },
-      };
-      return stmt;
-    },
   };
 }
 

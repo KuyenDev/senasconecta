@@ -2,11 +2,9 @@
  * Vista de Localidades y Sectores (Grupo Señas Osorno).
  */
 
-import { apiFetch, refreshReferenceData } from '../api.js';
+import { apiFetch } from '../api.js';
 import {
   closeModal,
-  openConfirmDialog,
-  openLocalidadFormModal,
   openModal,
   openPersonDetailModal,
   renderEmptyState,
@@ -142,19 +140,9 @@ export async function renderTerritorioView(container, { navigateTo }) {
             el('h2', { className: 'card-title', text: `Localidades y sectores (${items.length})` }),
             el('p', {
               className: 'card-subtitle',
-              text: state.authenticated
-                ? 'Agrega, edita o desactiva localidades y organiza los sectores del territorio'
-                : 'Consulta las localidades configuradas, sus sectores y registros asociados',
+              text: 'Consulta las localidades configuradas, sus sectores y registros asociados',
             })
-          ),
-          state.authenticated
-            ? el('button', {
-                type: 'button',
-                className: 'btn btn-primary btn-sm',
-                text: '+ Nueva localidad',
-                onClick: () => openLocalidadFormModal(null, () => loadLocalidades()),
-              })
-            : null
+          )
         ),
         items.length
           ? el(
@@ -210,52 +198,7 @@ export async function renderTerritorioView(container, { navigateTo }) {
                         el(
                           'div',
                           { className: 'row-actions' },
-                          el('button', { type: 'button', className: 'btn btn-outline btn-xs', text: 'Consultar', onClick: () => showLocalidadDetail(l.id) }),
-                          state.authenticated
-                            ? el('button', { type: 'button', className: 'btn btn-secondary btn-xs', text: 'Editar', onClick: () => openLocalidadFormModal(l, () => loadLocalidades()) })
-                            : null,
-                          state.authenticated
-                            ? el('button', {
-                                type: 'button',
-                                className: 'btn btn-outline btn-xs',
-                                text: l.activa ? 'Desactivar' : 'Activar',
-                                onClick: async () => {
-                                  try {
-                                    await apiFetch(`/api/localidades/${l.id}/estado`, {
-                                      method: 'PATCH',
-                                      body: { activa: l.activa ? 0 : 1 },
-                                    });
-                                    await refreshReferenceData();
-                                    showToast(l.activa ? 'Localidad desactivada.' : 'Localidad activada.', 'success');
-                                    loadLocalidades();
-                                  } catch (err) {
-                                    showToast(err.message, 'error');
-                                  }
-                                },
-                              })
-                            : null,
-                          state.authenticated
-                            ? el('button', {
-                                type: 'button',
-                                className: 'btn btn-ghost-danger btn-xs',
-                                text: 'Eliminar',
-                                onClick: () =>
-                                  openConfirmDialog({
-                                    title: 'Eliminar localidad',
-                                    message:
-                                      Number(l.personas_count) > 0
-                                        ? `La localidad "${l.nombre}" tiene ${l.personas_count} personas asociadas. Si confirmas, las fichas quedarán sin localidad asignada (no se eliminan personas).`
-                                        : `¿Confirmas eliminar la localidad "${l.nombre}"?`,
-                                    confirmLabel: 'Eliminar',
-                                    onConfirm: async () => {
-                                      await apiFetch(`/api/localidades/${l.id}?force=1`, { method: 'DELETE' });
-                                      await refreshReferenceData();
-                                      showToast('Localidad eliminada.', 'success');
-                                      loadLocalidades();
-                                    },
-                                  }),
-                              })
-                            : null
+                          el('button', { type: 'button', className: 'btn btn-outline btn-xs', text: 'Consultar', onClick: () => showLocalidadDetail(l.id) })
                         )
                       )
                     )
@@ -265,17 +208,7 @@ export async function renderTerritorioView(container, { navigateTo }) {
             )
           : renderEmptyState(
               'No hay localidades creadas',
-              state.authenticated
-                ? 'Agrega la primera localidad para comenzar a organizar el territorio.'
-                : 'Aún no hay localidades registradas.',
-              state.authenticated
-                ? el('button', {
-                    type: 'button',
-                    className: 'btn btn-primary',
-                    text: '+ Crear localidad',
-                    onClick: () => openLocalidadFormModal(null, () => loadLocalidades()),
-                  })
-                : null
+              'Aún no hay localidades registradas en la base JSON.'
             )
       );
 

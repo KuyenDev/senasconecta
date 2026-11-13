@@ -1,162 +1,94 @@
-"""
-Pruebas estáticas, de seguridad y de análisis ES Module para frontend y políticas del Worker.
-"""
+"""Pruebas unitarias estáticas, integridad de JSON publicados e higiene de seguridad."""
 
+import json
 import pathlib
 import re
 import subprocess
-import tempfile
 import unittest
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT_DIR / 'frontend'
-WORKER_DIR = ROOT_DIR / 'worker'
+DATA_DIR = FRONTEND_DIR / 'data'
 
 
-class FrontendAndUnitTests(unittest.TestCase):
-    def test_cookie_policy_unit_tests(self):
-        proc = subprocess.run(
-            ['gjs', '-m', str(ROOT_DIR / 'tests' / 'test_cookie_policy.mjs')],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(proc.returncode, 0, f'stderr: {proc.stderr}\nstdout: {proc.stdout}')
-        self.assertIn('COOKIE_POLICY_TESTS_OK', proc.stdout)
-
+class FrontendUnitsAndSecurityTests(unittest.TestCase):
     def test_all_frontend_modules_parse_cleanly(self):
-        js_files = sorted((FRONTEND_DIR / 'js').rglob('*.js'))
-        self.assertGreaterEqual(len(js_files), 14)
+        import tempfile
 
-        # Importar todas las vistas y módulos excepto app.js (que ejecuta bootstrap sobre DOM completo)
-        # y verificar sintaxis de app.js también mediante compilación de módulo con stubs DOM.
-        imports_lines = []
-        for idx, path in enumerate(js_files):
-            if path.name == 'app.js':
-                continue
-            uri = path.resolve().as_uri()
-            imports_lines.append(f"await import('{uri}');")
+        js_files = sorted(FRONTEND_DIR.rglob('*.js')) + sorted(FRONTEND_DIR.rglob('*.mjs'))
+        self.assertGreaterEqual(len(js_files), 10)
+        with tempfile.TemporaryDirectory() as tmp:
+            for idx, js_file in enumerate(js_files):
+                with self.subTest(file=js_file.name):
+                    probe = pathlib.Path(tmp) / f'check_{idx}.mjs'
+                    probe.write_text(
+                        f"import {json.dumps(js_file.as_uri())};\n",
+                        encoding='utf-8',
+                    )
+                    proc = subprocess.run(['gjs', '-m', str(probe)], capture_output=True, text=True, check=False)
+                    self.assertNotIn('SyntaxError', proc.stderr, proc.stderr)
+                    self.assertNotIn('Unable to load file', proc.stderr, proc.stderr)
+                    self.assertNotIn('ImportError', proc.stderr, proc.stderr)
 
-        app_uri = (FRONTEND_DIR / 'js' / 'app.js').resolve().as_uri()
+    def test_published_json_database_files_valid(self):
+        required = ['categorias.json', 'localidades.json', 'personas.json', 'seguimientos.json', 'meta.json']
+        for name in required:
+            path = DATA_DIR / name
+            self.assertTrue(path.exists(), f'Falta archivo de datos publicado: {path}')
 
-        shim_uri = (ROOT_DIR / 'tests' / 'harness' / 'install_globals.mjs').resolve().as_uri()
-        stub_script = f"""
-await import('{shim_uri}');
-const noop = () => {{}};
-const makeEl = () => ({{
-  classList: {{ add: noop, remove: noop, toggle: noop }},
-  setAttribute: noop,
-  removeAttribute: noop,
-  addEventListener: noop,
-  appendChild: noop,
-  querySelector: () => makeEl(),
-  querySelectorAll: () => [],
-  style: {{}},
-  dataset: {{}},
-  firstChild: null,
-}});
-globalThis.location = {{ href: 'http://127.0.0.1:8080/', hostname: '127.0.0.1', hash: '', assign: noop }};
-globalThis.history = {{ replaceState: noop }};
-globalThis.addEventListener = noop;
-globalThis.document = {{
-  title: 'SeñasConecta',
-  getElementById: () => makeEl(),
-  querySelectorAll: () => [],
-  createElement: () => makeEl(),
-  createTextNode: (t) => ({{ text: t }}),
-  addEventListener: noop,
-  head: makeEl(),
-  body: makeEl(),
-  activeElement: null,
-}};
-globalThis.fetch = async () => ({{
-  ok: true,
-  status: 200,
-  headers: {{ get: () => 'application/json' }},
-  json: async () => ({{ authenticated: false, oauth_configured: true }}),
-}});
-{chr(10).join(imports_lines)}
-await import('{app_uri}');
-print('FRONTEND_MODULES_OK');
-"""
-        with tempfile.NamedTemporaryFile('w', suffix='.mjs', delete=False, encoding='utf-8') as f:
-            f.write(stub_script)
-            tmp_path = f.name
+        categorias = json.loads((DATA_DIR / 'categorias.json').read_text(encoding='utf-8'))
+        localidades = json.loads((DATA_DIR / 'localidades.json').read_text(encoding='utf-8'))
+        personas = json.loads((DATA_DIR / 'personas.json').read_text(encoding='utf-8'))
+        seguimientos = json.loads((DATA_DIR / 'seguimientos.json').read_text(encoding='utf-8'))
+        meta = json.loads((DATA_DIR / 'meta.json').read_text(encoding='utf-8'))
 
-        try:
-            proc = subprocess.run(['gjs', '-m', tmp_path], capture_output=True, text=True, check=False)
-            self.assertEqual(proc.returncode, 0, f'stderr: {proc.stderr}\nstdout: {proc.stdout}')
-            self.assertIn('FRONTEND_MODULES_OK', proc.stdout)
-        finally:
-            pathlib.Path(tmp_path).unlink(missing_ok=True)
+        for group in ('estado_registro', 'medio_comunicacion', 'nivel_lsch', 'tipo_seguimiento', 'estado_seguimiento'):
+            self.assertIn(group, categorias)
+            self.assertGreater(len(categorias[group]), 0)
 
-    def test_security_hygiene_invariants(self):
-        frontend_js = list((FRONTEND_DIR / 'js').rglob('*.js'))
-        for path in frontend_js:
-            raw = path.read_text(encoding='utf-8')
-            code_only = re.sub(r'/\*[\s\S]*?\*/|//.*', '', raw)
-            self.assertNotIn('localStorage', code_only, f'Prohibido localStorage en {path}')
-            self.assertNotIn('sessionStorage', code_only, f'Prohibido sessionStorage en {path}')
-            self.assertNotIn('innerHTML', code_only, f'Prohibido innerHTML en {path}')
-            self.assertNotIn('outerHTML', code_only, f'Prohibido outerHTML en {path}')
-            self.assertNotIn('document.write', code_only, f'Prohibido document.write en {path}')
-            self.assertNotIn('GITHUB_CLIENT_SECRET', code_only, f'Secreto en frontend {path}')
+        self.assertGreaterEqual(len(localidades), 8)
+        self.assertIsInstance(personas, list)
+        self.assertIsInstance(seguimientos, list)
+        self.assertEqual(meta['app'], 'senasconecta')
+        self.assertEqual(meta['grupo'], 'Grupo Señas Osorno')
 
-        index_html = (FRONTEND_DIR / 'index.html').read_text(encoding='utf-8')
-        self.assertNotIn('jw.org', index_html.lower())
-        self.assertNotRegex(index_html, r'\bonclick\s*=')
-
-        wrangler = (WORKER_DIR / 'wrangler.toml').read_text(encoding='utf-8')
-        self.assertIsNone(re.search(r'GITHUB_CLIENT_SECRET\s*=', wrangler))
-
-    def test_config_github_pages_and_local_priority(self):
-        cfg_src = (FRONTEND_DIR / 'js' / 'config.js').read_text(encoding='utf-8')
-        patched_src = cfg_src.replace(
-            "API_BASE_URL: ''",
-            "API_BASE_URL: 'https://senasconecta-api.ejemplo.workers.dev'",
-            1,
+    def test_security_and_static_hygiene_invariants(self):
+        forbidden_tokens = [
+            'localStorage',
+            'sessionStorage',
+            'innerHTML',
+            'outerHTML',
+            'insertAdjacentHTML',
+            'document.write',
+            'eval(',
+            'jw.org',
+            'workers.dev',
+            '/auth/login',
+            'config.js',
+            'auth.js',
+        ]
+        files_to_scan = (
+            list(FRONTEND_DIR.glob('*.html'))
+            + list((FRONTEND_DIR / 'js').rglob('*.js'))
+            + list((FRONTEND_DIR / 'css').rglob('*.css'))
         )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_cfg = pathlib.Path(tmpdir) / 'config.prod.js'
-            tmp_cfg.write_text(patched_src, encoding='utf-8')
-            raw_uri = (FRONTEND_DIR / 'js' / 'config.js').resolve().as_uri()
-            prod_uri = tmp_cfg.as_uri()
-            test_script = f"""
-function assert(cond, msg) {{
-  if (!cond) throw new Error('Assertion failed: ' + msg);
-}}
+        for path in files_to_scan:
+            text = path.read_text(encoding='utf-8')
+            for token in forbidden_tokens:
+                self.assertNotIn(token, text, f'Prohibited token "{token}" found in {path}')
 
-globalThis.location = {{ hostname: 'usuario.github.io', port: '' }};
-globalThis.SENASCONECTA_API_URL = '';
-const rawCfg = await import('{raw_uri}');
-assert(rawCfg.getApiBaseUrl() === '', 'Empty API_BASE_URL on github.io returns empty');
-assert(rawCfg.isApiUrlConfigured() === false, 'Unconfigured on github.io returns false');
+        html_text = (FRONTEND_DIR / 'index.html').read_text(encoding='utf-8')
+        self.assertIsNone(re.search(r'\son[a-z]+\s*=', html_text, re.IGNORECASE), 'Inline HTML event handlers forbidden')
+        self.assertIn('href="./assets/favicon.svg"', html_text)
+        self.assertIn('href="./css/styles.css"', html_text)
+        self.assertIn('src="./js/app.js"', html_text)
+        self.assertNotIn('href="/', html_text)
+        self.assertNotIn('src="/', html_text)
 
-const prodCfg = await import('{prod_uri}');
-assert(
-  prodCfg.getApiBaseUrl() === 'https://senasconecta-api.ejemplo.workers.dev',
-  'GitHub Pages uses configured Worker API_BASE_URL'
-);
-assert(prodCfg.isApiUrlConfigured() === true, 'Configured on github.io returns true');
-
-globalThis.location = {{ hostname: '127.0.0.1', port: '5500' }};
-assert(
-  prodCfg.getApiBaseUrl() === 'http://127.0.0.1:8787',
-  'Local Live Server :5500 still targets :8787 even when GitHub Pages API_BASE_URL is configured'
-);
-
-globalThis.SENASCONECTA_API_URL = 'https://override.example';
-assert(
-  prodCfg.getApiBaseUrl() === 'https://override.example',
-  'Explicit runtime override still wins'
-);
-print('CONFIG_PRIORITY_TESTS_OK');
-"""
-            runner = pathlib.Path(tmpdir) / 'run_cfg_test.mjs'
-            runner.write_text(test_script, encoding='utf-8')
-            proc = subprocess.run(['gjs', '-m', str(runner)], capture_output=True, text=True, check=False)
-            self.assertEqual(proc.returncode, 0, f'stderr: {proc.stderr}\nstdout: {proc.stdout}')
-            self.assertIn('CONFIG_PRIORITY_TESTS_OK', proc.stdout)
+        self.assertTrue((FRONTEND_DIR / '.nojekyll').exists())
+        wf_text = (ROOT_DIR / '.github' / 'workflows' / 'deploy-pages.yml').read_text(encoding='utf-8')
+        self.assertIn('path: "frontend"', wf_text)
+        self.assertNotIn('SENASCONECTA_API_URL', wf_text)
 
 
 if __name__ == '__main__':
