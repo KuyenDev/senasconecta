@@ -36,3 +36,4 @@ python3 scripts/importar_excel.py
 ```
 
 Esto actualiza los JSON en `frontend/data/`. Luego subes los cambios con `git push` para publicarlos en GitHub Pages.
+

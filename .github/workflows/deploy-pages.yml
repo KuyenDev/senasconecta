@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "frontend/**"
+      - "datos_excel/**"
+      - "scripts/importar_excel.py"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
@@ -27,6 +29,9 @@ jobs:
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
+
+      - name: Integrar planillas Excel hacia JSON
+        run: python3 scripts/importar_excel.py
 
       - name: Configurar Pages
         uses: actions/configure-pages@v5

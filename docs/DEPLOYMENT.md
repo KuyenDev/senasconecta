@@ -1,42 +1,38 @@
-# Guía de publicación en GitHub Pages
+# Guía de publicación automatizada en GitHub Pages
 
-El proyecto queda listo para desplegarse como sitio estático gratuito en **GitHub Pages** mediante el flujo incluido en `.github/workflows/deploy-pages.yml`.
+El proyecto cuenta con dos capas de automatización para publicar en **GitHub Pages**:
+
+1. **Workflow de GitHub Actions** ([`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml)): cada vez que llega un cambio a `main` en `frontend/**`, `datos_excel/**` o `scripts/importar_excel.py`, GitHub Actions ejecuta `python3 scripts/importar_excel.py` y despliega `frontend/` en GitHub Pages.
+2. **Script todo-en-uno local** ([`scripts/publicar.py`](../scripts/publicar.py)): ejecuta todo el ciclo desde un solo comando en tu terminal usando la sesión Git guardada en tu equipo (`git credential`).
 
 ---
 
-## 1. Conectar el repositorio remoto en GitHub
+## Cómo publicar o actualizar con un comando
 
-Si todavía no has enlazado este proyecto con tu repositorio en GitHub:
-
-1. Crea un repositorio nuevo en GitHub (por ejemplo `senasconecta`).
-   - Recomendación: si vas a guardar datos personales en `frontend/data/` y planillas en `datos_excel/`, utiliza un **repositorio privado** (en cuentas con GitHub Pro/Team/Enterprise si usas Pages privado, o evalúa antes qué información publicas en GitHub Pages público).
-2. Enlaza el remoto local y sube la rama `main`:
+Después de actualizar cualquier planilla en `datos_excel/` o hacer ajustes al sitio:
 
 ```bash
-git remote add origin https://github.com/TU_USUARIO/TU_REPOSITORIO.git
-git push -u origin main
+python3 scripts/publicar.py
 ```
+
+Opciones útiles:
+- Reemplazar desde cero los registros previos usando solo lo que haya ahora en `datos_excel/`:
+  ```bash
+  python3 scripts/publicar.py --replace
+  ```
+- Indicar un mensaje de commit personalizado:
+  ```bash
+  python3 scripts/publicar.py --mensaje "Actualizar registros de marzo"
+  ```
+- Subir a otro nombre de repositorio:
+  ```bash
+  python3 scripts/publicar.py --repo mi-otro-repo
+  ```
 
 ---
 
-## 2. Activar GitHub Pages una sola vez
+## Nota sobre visibilidad en GitHub gratuito
 
-1. En GitHub, abre tu repositorio y entra a **Settings → Pages**.
-2. En **Build and deployment → Source**, elige **GitHub Actions**.
-3. En la pestaña **Actions** del repositorio verás ejecutarse el workflow **"Desplegar SeñasConecta en GitHub Pages"** (o puedes lanzarlo manualmente con **Run workflow**).
-4. Al terminar, GitHub mostrará la URL pública del sitio (por ejemplo `https://TU_USUARIO.github.io/TU_REPOSITORIO/`).
+En cuentas personales de GitHub en plan gratuito (`free`), **GitHub Pages solo está disponible para repositorios públicos**.
 
----
-
-## 3. Cómo publicar futuras actualizaciones desde Excel
-
-Cada vez que actualices las planillas en `datos_excel/`:
-
-```bash
-python3 scripts/importar_excel.py
-git add datos_excel frontend/data
-git commit -m "Actualizar registros territoriales"
-git push origin main
-```
-
-Al detectar cambios dentro de `frontend/**`, GitHub Actions volverá a publicar la página automáticamente en menos de un minuto.
+Si en el futuro decides subir datos sensibles de personas en `frontend/data/personas.json` o `datos_excel/`, recuerda que tanto el sitio en GitHub Pages como el repositorio público serán accesibles mediante su enlace.
