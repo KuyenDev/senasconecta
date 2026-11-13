@@ -164,12 +164,13 @@ def commit_and_push_main(message: str) -> str:
     return sha
 
 
-def ensure_github_pages_enabled(token: str, full_name: str, is_private: bool, plan_name: str) -> str:
+def ensure_github_pages_enabled(token: str, full_name: str, is_private: bool, plan_name: str) -> tuple[str, bool]:
     if is_private and plan_name == 'free':
         raise RuntimeError(
             f'El repositorio {full_name} es privado y el plan GitHub "free" no permite GitHub Pages en repositorios privados.'
         )
 
+    just_enabled = False
     code, info = github_api(token, 'GET', f'/repos/{full_name}/pages')
     pages_payload = {
         'build_type': 'workflow',
@@ -182,6 +183,7 @@ def ensure_github_pages_enabled(token: str, full_name: str, is_private: bool, pl
             msg = created.get('message') if isinstance(created, dict) else str(created)
             raise RuntimeError(f'Error activando GitHub Pages ({c2}): {msg}')
         info = created
+        just_enabled = True
     elif code == 200 and isinstance(info, dict):
         if info.get('build_type') != 'workflow':
             c2, updated = github_api(token, 'PUT', f'/repos/{full_name}/pages', pages_payload)
@@ -189,6 +191,7 @@ def ensure_github_pages_enabled(token: str, full_name: str, is_private: bool, pl
                 raise RuntimeError(f'No se pudo cambiar build_type de Pages a workflow ({c2}): {updated}')
             if isinstance(updated, dict):
                 info = updated
+            just_enabled = True
     else:
         raise RuntimeError(f'No se pudo consultar GitHub Pages ({code}): {info}')
 
@@ -196,19 +199,29 @@ def ensure_github_pages_enabled(token: str, full_name: str, is_private: bool, pl
     if not html_url:
         owner, repo = full_name.split('/', 1)
         html_url = f'https://{owner.lower()}.github.io/{repo}/'
-    return html_url.rstrip('/') + '/'
+    return html_url.rstrip('/') + '/', just_enabled
 
 
-def trigger_and_wait_pages_workflow(token: str, full_name: str, head_sha: str, wait_deploy: bool) -> str:
+def trigger_and_wait_pages_workflow(
+    token: str,
+    full_name: str,
+    head_sha: str,
+    wait_deploy: bool,
+    force_dispatch: bool = False,
+) -> str:
     time.sleep(2)
     code, runs_resp = github_api(token, 'GET', f'/repos/{full_name}/actions/workflows/{WORKFLOW_FILE}/runs?per_page=10')
     runs = runs_resp.get('workflow_runs', []) if code == 200 and isinstance(runs_resp, dict) else []
 
     matching = [r for r in runs if r.get('head_sha') == head_sha]
-    should_dispatch = not matching or all(r.get('conclusion') not in (None, 'success') for r in matching)
+    should_dispatch = (
+        force_dispatch
+        or not matching
+        or all(r.get('conclusion') not in (None, 'success') for r in matching)
+    )
 
     if should_dispatch:
-        print('Lanzando workflow deploy-pages.yml manualmente en GitHub Actions...')
+        print('Lanzando workflow deploy-pages.yml en GitHub Actions...')
         d_code, d_resp = github_api(
             token,
             'POST',
@@ -217,26 +230,29 @@ def trigger_and_wait_pages_workflow(token: str, full_name: str, head_sha: str, w
         )
         if d_code not in (201, 204):
             raise RuntimeError(f'No se pudo iniciar el workflow en GitHub Actions ({d_code}): {d_resp}')
-        time.sleep(3)
+        time.sleep(4)
 
     if not wait_deploy:
         return 'dispatched'
 
     print('Esperando que GitHub Actions publique en GitHub Pages...')
-    deadline = time.time() + 180
+    deadline = time.time() + 210
     last_status = ''
     while time.time() < deadline:
         code, runs_resp = github_api(token, 'GET', f'/repos/{full_name}/actions/workflows/{WORKFLOW_FILE}/runs?per_page=10')
         runs = runs_resp.get('workflow_runs', []) if code == 200 and isinstance(runs_resp, dict) else []
-        target = next((r for r in runs if r.get('head_sha') == head_sha), runs[0] if runs else None)
+        runs.sort(key=lambda r: int(r.get('id') or 0), reverse=True)
+        sha_runs = [r for r in runs if r.get('head_sha') == head_sha]
+        target = sha_runs[0] if sha_runs else (runs[0] if runs else None)
         if target:
             st = target.get('status') or ''
             concl = target.get('conclusion')
-            state_str = f'{st}/{concl}'
+            has_newer_active = len(sha_runs) > 1 and any(r.get('status') != 'completed' for r in sha_runs)
+            state_str = f'#{target.get("run_number")}: {st}/{concl}'
             if state_str != last_status:
-                print(f'  Estado workflow (#{target.get("run_number")}): status={st}, conclusion={concl}')
+                print(f'  Estado workflow ({state_str})')
                 last_status = state_str
-            if st == 'completed':
+            if st == 'completed' and not has_newer_active:
                 if concl == 'success':
                     return 'success'
                 raise RuntimeError(f'El despliegue en GitHub Actions falló con conclusión={concl} ({target.get("html_url")})')
@@ -303,10 +319,16 @@ def main() -> int:
     head_sha = commit_and_push_main(args.mensaje)
 
     print('5) Configurando GitHub Pages...')
-    pages_url = ensure_github_pages_enabled(token, full_name, is_private, plan_name)
+    pages_url, just_enabled = ensure_github_pages_enabled(token, full_name, is_private, plan_name)
 
     print('6) Ejecutando y verificando publicación en GitHub Actions...')
-    deploy_state = trigger_and_wait_pages_workflow(token, full_name, head_sha, wait_deploy=not args.no_wait)
+    deploy_state = trigger_and_wait_pages_workflow(
+        token,
+        full_name,
+        head_sha,
+        wait_deploy=not args.no_wait,
+        force_dispatch=just_enabled,
+    )
     if deploy_state == 'success':
         verify_live_site(pages_url)
 
