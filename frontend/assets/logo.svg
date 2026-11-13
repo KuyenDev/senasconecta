@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Emblema SeñasConecta">
+  <rect width="64" height="64" rx="16" fill="#163024"/>
+  <!-- Horizonte sutil de montañas del sur -->
+  <path d="M8 46L21 29L31 39L43 24L56 46" stroke="#879F82" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+  <!-- Dos arcos orgánicos de comunicación y encuentro en señas -->
+  <path d="M17 36C17 24.5 25.5 18 33 21.5C37.2 23.4 39.5 28 38.2 33.2" stroke="#FBF9F4" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M47 28C47 39.5 38.5 46 31 42.5C26.8 40.6 24.5 36 25.8 30.8" stroke="#C59B48" stroke-width="3.2" stroke-linecap="round"/>
+  <!-- Punto central cálido de conexión -->
+  <circle cx="32" cy="32" r="3.4" fill="#F6EEDB"/>
+</svg>
+

@@ -1,0 +1,39 @@
+name = "senasconecta-api"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# Base de datos Cloudflare D1 (SQLite)
+# Crear con: npx wrangler d1 create senasconecta-db
+# Luego reemplazar database_id con el identificador generado por Cloudflare.
+[[d1_databases]]
+binding = "DB"
+database_name = "senasconecta-db"
+database_id = "REEMPLAZAR_CON_TU_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Variables públicas (no sensibles). NO colocar secretos aquí.
+[vars]
+# URL exacta donde se sirve el frontend (terminada en / si usa subruta de GitHub Pages)
+FRONTEND_URL = "https://TU-USUARIO.github.io/senasconecta/"
+
+# Orígenes permitidos para CORS y protección CSRF (separados por coma si hay más de uno)
+ALLOWED_ORIGINS = "https://TU-USUARIO.github.io"
+
+# Duración de la sesión administrativa en horas
+SESSION_TTL_HOURS = "12"
+
+# Modo de cookie:
+# - "auto": detecta automáticamente si frontend y worker comparten el mismo sitio registrable (Lax) o son sitios distintos (None).
+# - "lax": forzar SameSite=Lax (recomendado cuando frontend y API comparten dominio registrable).
+# - "none": forzar SameSite=None; Secure (necesario en dominios separados como github.io + workers.dev).
+COOKIE_SAMESITE = "auto"
+
+# Dominio de cookie opcional (ej. ".tudominio.cl" si app.tudominio.cl y api.tudominio.cl comparten dominio)
+COOKIE_DOMAIN = ""
+
+# Secretos requeridos (configurar con `npx wrangler secret put <NOMBRE>`):
+# - GITHUB_CLIENT_ID
+# - GITHUB_CLIENT_SECRET
+# - ADMIN_GITHUB_ID
+# - SESSION_PEPPER (cadena aleatoria opcional para reforzar hashes de límite de tasa)
+

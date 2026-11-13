@@ -1,0 +1,39 @@
+# Secretos y configuración local de Cloudflare / desarrollo
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+*.pem
+*.key
+
+# Estado y compilaciones locales de Wrangler / Cloudflare
+.wrangler/
+worker/.wrangler/
+worker/dist/
+.local/
+_pages_dist/
+
+# Bases de datos locales de prueba o respaldos personales
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-*
+respaldos-locales/
+senasconecta-respaldo-*.json
+senasconecta-personas-*.csv
+
+# Dependencias y cachés
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
