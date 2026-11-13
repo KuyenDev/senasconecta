@@ -116,6 +116,10 @@ PERSON_TEMPLATE_HEADERS = [
     'Ultima visita',
     'Proxima accion',
     'Observaciones',
+    'Direccion',
+    'Latitud',
+    'Longitud',
+    'Link Google Maps',
 ]
 
 LOCALIDAD_TEMPLATE_HEADERS = [
@@ -192,6 +196,23 @@ KEY_ALIASES = {
     'consentimiento': 'consentimiento_registrado',
     'consentimiento_registrado': 'consentimiento_registrado',
     'nota_consentimiento': 'nota_consentimiento',
+    'direccion': 'direccion',
+    'domicilio': 'direccion',
+    'calle': 'direccion',
+    'latitud': 'latitud',
+    'lat': 'latitud',
+    'longitud': 'longitud',
+    'lng': 'longitud',
+    'lon': 'longitud',
+    'link_google_maps': 'mapa_url',
+    'google_maps': 'mapa_url',
+    'enlace_google_maps': 'mapa_url',
+    'enlace_mapa': 'mapa_url',
+    'mapa_url': 'mapa_url',
+    'url_mapa': 'mapa_url',
+    'link_mapa': 'mapa_url',
+    'ubicacion': 'ubicacion',
+    'coordenadas': 'ubicacion',
     'fecha_entrega': 'fecha_entrega',
     'fecha_archivo': 'fecha_entrega',
     'fecha_dato': 'fecha_entrega',
@@ -679,6 +700,8 @@ def parse_text_to_sheets(text: str, default_name: str = 'Personas') -> list[tupl
         if not m:
             continue
         raw_k = norm_key(m.group(1))
+        if raw_k in ('http', 'https') or m.group(2).lstrip().startswith('//'):
+            continue
         canon_k = KEY_ALIASES.get(raw_k, raw_k)
         val = m.group(2).strip()
         # Si aparece un nuevo 'nombre' y el bloque actual ya tiene 'nombre', iniciar nuevo registro
@@ -822,9 +845,90 @@ def parse_float_or_none(val: object) -> float | None:
     if not s:
         return None
     try:
-        return float(s)
+        num = float(s)
     except ValueError:
         return None
+    if num != num:  # NaN guard
+        return None
+    return num
+
+
+def valid_lat_lng(lat: float | None, lng: float | None) -> tuple[float | None, float | None]:
+    if lat is None or lng is None:
+        return None, None
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
+        return None, None
+    if lat == 0.0 and lng == 0.0:
+        return None, None
+    return round(lat, 6), round(lng, 6)
+
+
+def safe_http_url(val: object) -> str:
+    raw = str(val or '').strip()
+    if re.match(r'^https?://\S+$', raw, re.IGNORECASE):
+        return raw
+    return ''
+
+
+def parse_coordinates_text(val: object) -> tuple[float | None, float | None]:
+    """Extrae (latitud, longitud) desde URLs de Google Maps o texto 'lat, lng'."""
+    s = str(val or '').strip()
+    if not s:
+        return None, None
+
+    patterns = [
+        # Pin exacto embebido en enlaces largos de Google Maps (!3dLAT!4dLNG)
+        r'!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)',
+        # Parámetros query (?q=lat,lng, ll=lat,lng, center=lat,lng, query=lat%2Clng)
+        r'[?&](?:q|query|ll|destination|center|saddr|daddr)=(-?\d+\.\d+)(?:,|%2C|\s+|\+)(-?\d+\.\d+)',
+        # Vista @lat,lng,zoom
+        r'@(-?\d+\.\d+),\s*(-?\d+\.\d+)',
+        # Par directo con decimales: -40.5739, -73.1335
+        r'^\s*(-?\d+\.\d+)\s*[,;\s]\s*(-?\d+\.\d+)\s*$',
+    ]
+    for pat in patterns:
+        m = re.search(pat, s)
+        if not m:
+            continue
+        lat, lng = valid_lat_lng(parse_float_or_none(m.group(1)), parse_float_or_none(m.group(2)))
+        if lat is not None and lng is not None:
+            return lat, lng
+    return None, None
+
+
+def extract_person_location(row: dict[str, str]) -> tuple[str, float | None, float | None, str]:
+    raw_dir = pick(row, 'direccion', 'domicilio', 'calle')
+    raw_map = pick(
+        row,
+        'mapa_url',
+        'link_google_maps',
+        'google_maps',
+        'enlace_google_maps',
+        'enlace_mapa',
+        'url_mapa',
+        'link_mapa',
+    )
+    raw_coord = pick(row, 'ubicacion', 'coordenadas')
+
+    mapa_url = safe_http_url(raw_map) or safe_http_url(raw_coord)
+    direccion = raw_dir
+    if re.match(r'^https?://', raw_dir, re.IGNORECASE):
+        if not mapa_url:
+            mapa_url = safe_http_url(raw_dir)
+        direccion = ''
+
+    lat = parse_float_or_none(pick(row, 'latitud', 'lat'))
+    lng = parse_float_or_none(pick(row, 'longitud', 'lng', 'lon'))
+    lat, lng = valid_lat_lng(lat, lng)
+
+    if lat is None or lng is None:
+        for candidate in (raw_map, raw_coord, raw_dir):
+            c_lat, c_lng = parse_coordinates_text(candidate)
+            if c_lat is not None and c_lng is not None:
+                lat, lng = c_lat, c_lng
+                break
+
+    return direccion, lat, lng, mapa_url
 
 
 def map_category(val: object, mappings: dict[str, str], default: str) -> str:
@@ -935,9 +1039,23 @@ def detect_sheet_kind(sheet_name: str, headers: set[str]) -> str:
     if 'seguimiento' in s_norm or ('tipo' in headers and 'descripcion' in headers and 'nombre' not in headers):
         return 'seguimientos'
     if 'nombre' in headers or 'nombres' in headers or 'persona' in headers or 'personas' in s_norm:
-        if 'region' in headers or 'latitud' in headers:
-            if 'apellido' not in headers and 'apellidos' not in headers and 'sector' not in headers and 'estado' not in headers:
-                return 'localidades'
+        person_only_cols = {
+            'apellido',
+            'apellidos',
+            'sector',
+            'estado',
+            'localidad',
+            'direccion',
+            'domicilio',
+            'mapa_url',
+            'link_google_maps',
+            'google_maps',
+            'ubicacion',
+            'usa_lsch',
+            'medio_comunicacion',
+        }
+        if ('region' in headers or 'latitud' in headers or 'lat' in headers) and not (headers & person_only_cols):
+            return 'localidades'
         return 'personas'
     return 'unknown'
 
@@ -1214,6 +1332,7 @@ def sync_excel_to_json(
                 raw_estado = pick(row, 'estado', 'estado_registro')
                 estado = map_category(raw_estado, ESTADO_REGISTRO_MAP, '')
                 consent = parse_tri_bool(pick(row, 'consentimiento_registrado', 'consentimiento'))
+                direccion, lat, lng, mapa_url = extract_person_location(row)
 
                 incoming = {
                     'nombre': nombre,
@@ -1221,6 +1340,10 @@ def sync_excel_to_json(
                     'localidad_id': loc_obj['id'] if loc_obj else None,
                     'localidad_nombre': loc_obj['nombre'] if loc_obj else '',
                     'sector': pick(row, 'sector', 'sector_o_barrio', 'barrio', 'zona', 'direccion_referencial'),
+                    'direccion': direccion,
+                    'latitud': lat,
+                    'longitud': lng,
+                    'mapa_url': mapa_url,
                     'fecha_incorporacion': parse_date(
                         pick(row, 'fecha_incorporacion', 'incorporacion', 'fecha_ingreso', 'fecha_registro')
                     ),
@@ -1284,6 +1407,10 @@ def sync_excel_to_json(
                         'localidad_id': incoming['localidad_id'],
                         'localidad_nombre': incoming['localidad_nombre'],
                         'sector': incoming['sector'],
+                        'direccion': incoming['direccion'],
+                        'latitud': incoming['latitud'],
+                        'longitud': incoming['longitud'],
+                        'mapa_url': incoming['mapa_url'],
                         'fecha_incorporacion': incoming['fecha_incorporacion'],
                         'medio_comunicacion': incoming['medio_comunicacion'],
                         'usa_lsch': incoming['usa_lsch'],

@@ -5,6 +5,7 @@
 import { apiFetch } from './api.js';
 import { state } from './state.js';
 import {
+  buildGoogleMapsUrl,
   clearNode,
   createBadge,
   el,
@@ -13,6 +14,7 @@ import {
   fullName,
   getCategoryLabel,
   getStatusBadgeClass,
+  hasCoords,
   triBoolLabel,
 } from './utils.js';
 
@@ -172,6 +174,8 @@ export async function openPersonDetailModal(personId) {
 
   try {
     const { persona, seguimientos } = await apiFetch(`/api/personas/${personId}`);
+    const mapsUrl = buildGoogleMapsUrl(persona);
+    const coordsText = hasCoords(persona) ? `${persona.latitud}, ${persona.longitud}` : '—';
 
     const body = el(
       'div',
@@ -183,9 +187,22 @@ export async function openPersonDetailModal(personId) {
           'div',
           { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' } },
           el('div', {}, el('span', { className: 'code-pill', text: persona.codigo_interno }), ' ', el('strong', { style: { fontSize: '1.15rem', marginLeft: '6px' }, text: fullName(persona) })),
-          createBadge(
-            getCategoryLabel(state.categorias, 'estado_registro', persona.estado, persona.estado),
-            getStatusBadgeClass(persona.estado)
+          el(
+            'div',
+            { style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' } },
+            mapsUrl
+              ? el('a', {
+                  href: mapsUrl,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                  className: 'btn btn-secondary btn-xs',
+                  text: 'Abrir en Google Maps',
+                })
+              : null,
+            createBadge(
+              getCategoryLabel(state.categorias, 'estado_registro', persona.estado, persona.estado),
+              getStatusBadgeClass(persona.estado)
+            )
           )
         ),
         el(
@@ -193,6 +210,8 @@ export async function openPersonDetailModal(personId) {
           { className: 'detail-grid' },
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Localidad' }), el('span', { className: 'detail-val', text: persona.localidad_nombre || 'Sin asignar' })),
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Sector o barrio' }), el('span', { className: 'detail-val', text: persona.sector || '—' })),
+          el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Dirección' }), el('span', { className: 'detail-val', text: persona.direccion || '—' })),
+          el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Coordenadas' }), el('span', { className: 'detail-val', text: coordsText })),
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Fecha incorporación' }), el('span', { className: 'detail-val', text: formatDate(persona.fecha_incorporacion) }))
         )
       ),

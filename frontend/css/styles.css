@@ -1084,12 +1084,52 @@ textarea {
 /* ---------- Mapa Territorial ---------- */
 
 .map-canvas-box {
-  height: 410px;
+  height: 460px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-sage-tint);
   overflow: hidden;
   position: relative;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(22, 48, 36, 0.25);
+}
+
+.map-popup-card {
+  display: grid;
+  gap: 6px;
+  min-width: 210px;
+  max-width: 270px;
+  font-size: 0.86rem;
+}
+
+.map-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .territory-card {

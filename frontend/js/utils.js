@@ -123,3 +123,34 @@ export function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+export function safeHttpUrl(rawUrl) {
+  const s = String(rawUrl ?? '').trim();
+  if (/^https?:\/\/\S+$/i.test(s)) return s;
+  return '';
+}
+
+export function hasCoords(item) {
+  return (
+    item !== null &&
+    item !== undefined &&
+    typeof item.latitud === 'number' &&
+    Number.isFinite(item.latitud) &&
+    typeof item.longitud === 'number' &&
+    Number.isFinite(item.longitud)
+  );
+}
+
+export function buildGoogleMapsUrl(persona) {
+  if (!persona || typeof persona !== 'object') return '';
+  const explicit = safeHttpUrl(persona.mapa_url);
+  if (explicit) return explicit;
+  if (hasCoords(persona)) {
+    return `https://www.google.com/maps/search/?api=1&query=${persona.latitud},${persona.longitud}`;
+  }
+  const queryParts = [persona.direccion, persona.sector, persona.localidad_nombre].filter(Boolean);
+  if (persona.direccion && queryParts.length) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${queryParts.join(', ')}, Chile`)}`;
+  }
+  return '';
+}
+

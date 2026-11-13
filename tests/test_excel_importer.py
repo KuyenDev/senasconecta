@@ -395,6 +395,60 @@ class ExcelImporterTests(unittest.TestCase):
             self.assertEqual(meta['fuentes'][0]['fecha_entrega'], '2026-11-14')
             self.assertEqual(meta['archivos_requieren_revision'][0]['archivo'], '2026-11-14/escaneo_visitas.pdf')
 
+    def test_06_person_location_coords_and_google_maps_url(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            excel_dir = tmp_path / 'datos'
+            data_dir = tmp_path / 'data'
+            excel_dir.mkdir(parents=True, exist_ok=True)
+
+            # Verificar distintas formas de pasar ubicación (sin Apellido -> sigue siendo Personas si tiene Localidad/Google Maps)
+            csv_ubic = (
+                'Nombre;Localidad;Direccion;Latitud;Longitud;Link Google Maps\n'
+                'Camila Soto;Osorno;Av. República 410;-40.573912;-73.133541;\n'
+                'Pedro Núñez;Río Negro;Sector Rural;;;https://www.google.com/maps/place/Rio+Negro/@-40.796512,-73.214321,16z\n'
+                'Ana Vidal;San Pablo;;;-;'
+                'https://maps.google.com/?q=-40.402100,-73.341200\n'
+                'Luis Mora;Osorno;Malicioso;;;javascript:alert(1)\n'
+            )
+            (excel_dir / '2026-11-15_ubicaciones.csv').write_text(csv_ubic, encoding='utf-8')
+
+            # Ficha TXT parcial con Coordenadas directas y pin !3d!4d para probar extracción sin sobrescribir previo antiguo
+            (excel_dir / '2026-11-16_ficha_coord.txt').write_text(
+                'Nombre: Ana Vidal\n'
+                'Localidad: San Pablo\n'
+                'Direccion: Camino Norte Km 3\n'
+                'Coordenadas: -40.405500, -73.345500\n',
+                encoding='utf-8',
+            )
+
+            res = importar_excel.sync_excel_to_json(excel_dir, data_dir, replace=True)
+            self.assertEqual(res['personas_agregadas'], 4)
+            self.assertEqual(res['personas_actualizadas'], 1)
+
+            personas = json.loads((data_dir / 'personas.json').read_text(encoding='utf-8'))
+            por_nombre = {f"{p['nombre']} {p['apellido']}".strip(): p for p in personas}
+
+            camila = por_nombre['Camila Soto']
+            self.assertEqual(camila['direccion'], 'Av. República 410')
+            self.assertAlmostEqual(camila['latitud'], -40.573912)
+            self.assertAlmostEqual(camila['longitud'], -73.133541)
+
+            pedro = por_nombre['Pedro Núñez']
+            self.assertAlmostEqual(pedro['latitud'], -40.796512)
+            self.assertAlmostEqual(pedro['longitud'], -73.214321)
+            self.assertTrue(pedro['mapa_url'].startswith('https://www.google.com/maps/'))
+
+            ana = por_nombre['Ana Vidal']
+            self.assertEqual(ana['direccion'], 'Camino Norte Km 3')
+            self.assertAlmostEqual(ana['latitud'], -40.4055)
+            self.assertAlmostEqual(ana['longitud'], -73.3455)
+
+            luis = por_nombre['Luis Mora']
+            self.assertIsNone(luis['latitud'])
+            self.assertIsNone(luis['longitud'])
+            self.assertEqual(luis['mapa_url'], '')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

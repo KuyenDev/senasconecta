@@ -428,8 +428,11 @@ async function runScenario() {
     const modalText = modalRoot.textContent;
     assert(!modalRoot.classList.contains('hidden'), 'Detail modal opens');
     assert(modalText.includes('Sofía Cárdenas'), 'Modal shows person name');
+    assert(modalText.includes('Av. República 410'), 'Modal shows person direccion');
     assert(modalText.includes('Lengua de Señas Chilena (LSCh)'), 'Modal shows communication method');
     assert(modalText.includes('Coordinar intérprete'), 'Modal shows linked seguimiento');
+    const modalMapsLink = Array.from(modalRoot.querySelectorAll('a')).find((a) => a.textContent === 'Abrir en Google Maps');
+    assert(modalMapsLink && (modalMapsLink.getAttribute('href') || '').startsWith('https://www.google.com/maps'), 'Modal shows safe Google Maps link');
     assert(!modalText.includes('Editar') && !modalText.includes('Eliminar'), 'Modal has zero mutation buttons');
     modalRoot.querySelectorAll('button').find((b) => b.textContent === 'Cerrar').click();
     await flush(60);
@@ -452,8 +455,21 @@ async function runScenario() {
 
     // Mapa territorial
     await nav('mapa');
-    assert(mainEl.textContent.includes('Rahue Bajo (1)'), 'Mapa lists sector chips');
-    assert(!mainEl.textContent.includes('Definir centro'), 'Mapa has no admin coordinate edit buttons');
+    const mapText = mainEl.textContent;
+    assert(mapText.includes('Rahue Bajo (1)'), 'Mapa lists sector chips');
+    assert(mapText.includes('1 personas con marcador en el mapa'), 'Mapa reports person marker count');
+    assert(mapText.includes('Av. República 410'), 'Mapa lists person direccion');
+    const gmapsLink = Array.from(mainEl.querySelectorAll('a')).find((a) => a.textContent === 'Google Maps');
+    assert(gmapsLink && (gmapsLink.getAttribute('href') || '').startsWith('https://www.google.com/maps'), 'Mapa includes Google Maps direct action');
+    assert(!mapText.includes('Definir centro'), 'Mapa has no admin coordinate edit buttons');
+
+    // Filtrar en Mapa por Río Negro (Mateo sin coordenadas) -> contador debe actualizar a 0 marcadores
+    const mapFilterLoc = mainEl.querySelector('#map-filter-loc');
+    const rioOpt = mapFilterLoc.options.find((o) => o.textContent.includes('Río Negro'));
+    mapFilterLoc.value = rioOpt.value;
+    mapFilterLoc.dispatchEvent({ type: 'change' });
+    await flush(60);
+    assert(mainEl.textContent.includes('0 personas con marcador en el mapa'), 'Mapa filter updates marker count');
 
     // Estadísticas
     await nav('estadisticas');

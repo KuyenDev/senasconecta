@@ -1,13 +1,35 @@
 /**
- * Vista del módulo de Mapa Territorial (filtros territoriales por localidad/sector + Leaflet/OSM opcional).
+ * Vista del módulo de Mapa Territorial:
+ * - Filtros por localidad, estado y sector/nombre.
+ * - Mapa interactivo gratuito (Leaflet con vista calles OSM y satélite) con marcadores de cada persona.
+ * - Acceso directo para abrir cada ubicación en Google Maps o ver la ficha completa.
  */
 
 import { apiFetch } from '../api.js';
-import { renderLoading, showToast } from '../components.js';
+import { openPersonDetailModal, renderLoading, showToast } from '../components.js';
+import { normalizeText } from '../dataStore.js';
 import { state } from '../state.js';
-import { clearNode, createBadge, el } from '../utils.js';
+import {
+  buildGoogleMapsUrl,
+  clearNode,
+  createBadge,
+  el,
+  fullName,
+  getCategoryLabel,
+  getStatusBadgeClass,
+  hasCoords,
+  triBoolLabel,
+} from '../utils.js';
 
 let leafletLoadPromise = null;
+
+const STATUS_MARKER_STYLE = {
+  confirmado: { fill: '#2e6f40', label: 'Confirmado' },
+  pendiente_actualizacion: { fill: '#c6932d', label: 'Pendiente / Por confirmar' },
+  por_confirmar: { fill: '#c6932d', label: 'Pendiente / Por confirmar' },
+  requiere_visita: { fill: '#b84a39', label: 'Requiere visita' },
+  inactivo: { fill: '#6b7280', label: 'Inactivo / Trasladado' },
+};
 
 function loadLeafletAssets() {
   if (window.L) return Promise.resolve(window.L);
@@ -35,7 +57,11 @@ function loadLeafletAssets() {
     };
     script.onerror = () => {
       leafletLoadPromise = null;
-      reject(new Error('No fue posible cargar Leaflet/OpenStreetMap (sin conexión o bloqueado). El sistema funciona normalmente con los filtros territoriales.'));
+      reject(
+        new Error(
+          'No fue posible cargar el mapa gratuito (sin conexión o bloqueado). Puedes seguir usando las tarjetas y enlaces a Google Maps.'
+        )
+      );
     };
     document.body.appendChild(script);
   });
@@ -43,14 +69,36 @@ function loadLeafletAssets() {
   return leafletLoadPromise;
 }
 
+async function fetchAllPersonas() {
+  const all = [];
+  let page = 1;
+  while (true) {
+    const res = await apiFetch(`/api/personas?page=${page}&limit=1000&sort=nombre&order=asc`);
+    const chunk = Array.isArray(res.items) ? res.items : [];
+    all.push(...chunk);
+    if (all.length >= Number(res.total || 0) || !chunk.length) break;
+    page += 1;
+  }
+  return all;
+}
+
+function getMarkerStyle(estado) {
+  return STATUS_MARKER_STYLE[estado] || STATUS_MARKER_STYLE.por_confirmar;
+}
+
 export async function renderMapaView(container, { navigateTo }) {
   clearNode(container);
-  container.appendChild(renderLoading('Cargando información territorial…'));
+  container.appendChild(renderLoading('Cargando información territorial y ubicaciones…'));
 
   let localidades = [];
+  let personas = [];
   try {
-    const res = await apiFetch('/api/localidades?incluir_inactivas=0');
-    localidades = res.items || [];
+    const [locRes, allPersonas] = await Promise.all([
+      apiFetch('/api/localidades?incluir_inactivas=0'),
+      fetchAllPersonas(),
+    ]);
+    localidades = locRes.items || [];
+    personas = allPersonas;
   } catch (err) {
     clearNode(container);
     container.appendChild(el('div', { className: 'alert alert-error', text: err.message }));
@@ -63,18 +111,14 @@ export async function renderMapaView(container, { navigateTo }) {
     el(
       'div',
       { className: 'alert alert-info' },
-      'Resguardo de privacidad territorial: aquí se muestran únicamente localidades y sectores generales. No se solicitan, almacenan ni grafican domicilios exactos ni coordenadas personales.'
+      'Mapa territorial gratuito del Grupo Señas Osorno: activa el mapa para visualizar los marcadores de cada persona sorda (vista calles o satélite) y abrir cualquier ubicación o ruta directamente en Google Maps.'
     )
   );
 
-  const withCoords = localidades.filter(
-    (l) => l.latitud !== null && l.latitud !== undefined && l.longitud !== null && l.longitud !== undefined
-  );
-  const withoutCoords = localidades.filter((l) => !withCoords.includes(l));
-
-  // Sección de filtros territoriales (siempre disponible sin depender de mapa)
+  // Filtros compartidos (aplican a mapa, lista de ubicaciones y tarjetas de localidades)
   let selectedLocId = '';
-  let sectorQuery = '';
+  let selectedEstado = '';
+  let searchQuery = '';
 
   const selLoc = el(
     'select',
@@ -83,34 +127,332 @@ export async function renderMapaView(container, { navigateTo }) {
     localidades.map((l) => el('option', { value: String(l.id), text: `${l.nombre} (${l.personas_count || 0})` }))
   );
 
-  const inSector = el('input', {
+  const selEstado = el(
+    'select',
+    { id: 'map-filter-estado', className: 'select' },
+    el('option', { value: '', text: 'Todos los estados' }),
+    (state.categorias.estado_registro || []).map((c) => el('option', { value: c.clave, text: c.etiqueta }))
+  );
+
+  const inSearch = el('input', {
     id: 'map-filter-sector',
     type: 'search',
     className: 'input',
-    placeholder: 'Filtrar por nombre de sector o barrio…',
+    placeholder: 'Filtrar por persona, sector o dirección…',
   });
 
   const toolbar = el(
     'section',
     { className: 'toolbar', ariaLabel: 'Filtros territoriales' },
     el('div', { className: 'field' }, el('label', { className: 'field-label', for: 'map-filter-loc', text: 'Localidad' }), selLoc),
-    el('div', { className: 'field field-grow' }, el('label', { className: 'field-label', for: 'map-filter-sector', text: 'Sector o barrio' }), inSector)
+    el('div', { className: 'field' }, el('label', { className: 'field-label', for: 'map-filter-estado', text: 'Estado' }), selEstado),
+    el('div', { className: 'field field-grow' }, el('label', { className: 'field-label', for: 'map-filter-sector', text: 'Sector, dirección o nombre' }), inSearch)
   );
 
-  const cardsGrid = el('div', { className: 'grid-3' });
-
-  function renderTerritoryCards() {
-    clearNode(cardsGrid);
-    const filtered = localidades.filter((l) => {
+  function getFilteredLocalidades() {
+    const q = normalizeText(searchQuery);
+    return localidades.filter((l) => {
       if (selectedLocId && String(l.id) !== selectedLocId) return false;
-      if (sectorQuery) {
-        const q = sectorQuery.toLowerCase();
-        const nameMatch = l.nombre.toLowerCase().includes(q);
-        const secMatch = (l.sectores || []).some((s) => s.nombre.toLowerCase().includes(q));
+      if (q) {
+        const nameMatch = normalizeText(l.nombre).includes(q);
+        const secMatch = (l.sectores || []).some((s) => normalizeText(s.nombre).includes(q));
         return nameMatch || secMatch;
       }
       return true;
     });
+  }
+
+  function getFilteredPersonas() {
+    const q = normalizeText(searchQuery);
+    return personas.filter((p) => {
+      if (selectedLocId && String(p.localidad_id ?? '') !== selectedLocId) return false;
+      if (selectedEstado && p.estado !== selectedEstado) return false;
+      if (q) {
+        const haystack = normalizeText(
+          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion}`
+        );
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  // Contenedores dinámicos
+  const mapHost = el('div', { id: 'leaflet-map-host', className: 'map-canvas-box hidden' });
+  const mapStatus = el('div', { className: 'alert alert-warning hidden' });
+  const mapSubtitle = el('p', { className: 'card-subtitle' });
+  const mapHintEl = el('p', { className: 'field-hint', style: { marginTop: '8px' } });
+  const locationsListBody = el('div', { className: 'card-body' });
+  const cardsGrid = el('div', { className: 'grid-3' });
+
+  const legend = el(
+    'div',
+    { className: 'map-legend', ariaLabel: 'Leyenda de colores de marcadores' },
+    el('span', { className: 'map-legend-item' }, el('span', { className: 'map-legend-dot', style: { background: '#2e6f40' } }), 'Confirmado'),
+    el('span', { className: 'map-legend-item' }, el('span', { className: 'map-legend-dot', style: { background: '#c6932d' } }), 'Pendiente / Por confirmar'),
+    el('span', { className: 'map-legend-item' }, el('span', { className: 'map-legend-dot', style: { background: '#b84a39' } }), 'Requiere visita'),
+    el('span', { className: 'map-legend-item' }, el('span', { className: 'map-legend-dot', style: { background: '#6b7280' } }), 'Inactivo')
+  );
+
+  const btnEnableMap = el('button', {
+    type: 'button',
+    className: 'btn btn-primary btn-sm',
+    text: 'Activar mapa con marcadores (Gratuito)',
+  });
+
+  let mapInstance = null;
+  let markersLayer = null;
+
+  function renderMapMarkers() {
+    if (!mapInstance || !markersLayer || !window.L) return;
+    const L = window.L;
+    markersLayer.clearLayers();
+
+    const filteredPeople = getFilteredPersonas();
+    const peopleWithCoords = filteredPeople.filter(hasCoords);
+    const locsWithCoords = getFilteredLocalidades().filter(hasCoords);
+    const bounds = [];
+
+    // Centros referenciales de localidades como referencia suave
+    for (const loc of locsWithCoords) {
+      const lat = Number(loc.latitud);
+      const lng = Number(loc.longitud);
+      bounds.push([lat, lng]);
+
+      const circle = L.circleMarker([lat, lng], {
+        radius: 16,
+        color: '#163024',
+        fillColor: '#496343',
+        fillOpacity: peopleWithCoords.length ? 0.14 : 0.45,
+        weight: 1.5,
+      });
+
+      const locPopup = el(
+        'div',
+        { className: 'map-popup-card' },
+        el('strong', { text: `${loc.nombre} (centro referencial)` }),
+        el('div', { text: `Personas registradas: ${loc.personas_count || 0}` }),
+        loc.sectores?.length
+          ? el('div', { text: `Sectores: ${loc.sectores.map((s) => s.nombre).join(', ')}` })
+          : null
+      );
+      circle.bindPopup(locPopup);
+      circle.addTo(markersLayer);
+    }
+
+    // Marcadores individuales de cada persona (con micro-separación si comparten coordenada exacta)
+    const coordSeenCount = new Map();
+    for (const persona of peopleWithCoords) {
+      const baseLat = Number(persona.latitud);
+      const baseLng = Number(persona.longitud);
+      const key = `${baseLat.toFixed(6)},${baseLng.toFixed(6)}`;
+      const dupIndex = coordSeenCount.get(key) || 0;
+      coordSeenCount.set(key, dupIndex + 1);
+
+      let lat = baseLat;
+      let lng = baseLng;
+      if (dupIndex > 0) {
+        const angle = (dupIndex * 2 * Math.PI) / 6;
+        const offset = 0.00012 * (1 + Math.floor((dupIndex - 1) / 6));
+        lat += Math.sin(angle) * offset;
+        lng += Math.cos(angle) * offset;
+      }
+
+      bounds.push([lat, lng]);
+      const style = getMarkerStyle(persona.estado);
+      const marker = L.circleMarker([lat, lng], {
+        radius: 9,
+        color: '#ffffff',
+        fillColor: style.fill,
+        fillOpacity: 0.94,
+        weight: 2.5,
+      });
+
+      const mapsUrl = buildGoogleMapsUrl(persona);
+      const popupEl = el(
+        'div',
+        { className: 'map-popup-card' },
+        el(
+          'div',
+          { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } },
+          el('strong', { text: fullName(persona) }),
+          createBadge(
+            getCategoryLabel(state.categorias, 'estado_registro', persona.estado, persona.estado),
+            getStatusBadgeClass(persona.estado)
+          )
+        ),
+        el('div', { className: 'activity-meta', text: `${persona.codigo_interno} · ${persona.localidad_nombre}${persona.sector ? ` · ${persona.sector}` : ''}` }),
+        persona.direccion ? el('div', { text: `Dirección: ${persona.direccion}` }) : null,
+        el('div', {
+          text: `LSCh: ${triBoolLabel(persona.usa_lsch)}${persona.medio_comunicacion ? ` · ${getCategoryLabel(state.categorias, 'medio_comunicacion', persona.medio_comunicacion)}` : ''}`,
+        }),
+        persona.proxima_accion ? el('div', { className: 'activity-meta', text: `Próxima acción: ${persona.proxima_accion}` }) : null,
+        el(
+          'div',
+          { className: 'map-popup-actions' },
+          el('button', {
+            type: 'button',
+            className: 'btn btn-secondary btn-xs',
+            text: 'Ver ficha',
+            onClick: () => openPersonDetailModal(persona.id),
+          }),
+          mapsUrl
+            ? el('a', {
+                href: mapsUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                className: 'btn btn-primary btn-xs',
+                text: 'Abrir en Google Maps',
+              })
+            : null
+        )
+      );
+
+      marker.bindPopup(popupEl);
+      marker.addTo(markersLayer);
+    }
+
+    if (bounds.length === 1) {
+      mapInstance.setView(bounds[0], peopleWithCoords.length ? 15 : 11);
+    } else if (bounds.length > 1) {
+      mapInstance.fitBounds(bounds, { padding: [38, 38], maxZoom: 16 });
+    }
+  }
+
+  function renderStatusAndHints() {
+    const filteredPeople = getFilteredPersonas();
+    const withPersonCoords = filteredPeople.filter(hasCoords);
+    const withMapsOnly = filteredPeople.filter((p) => !hasCoords(p) && Boolean(buildGoogleMapsUrl(p)));
+    const locsWithCoords = getFilteredLocalidades().filter(hasCoords);
+
+    mapSubtitle.textContent = `${withPersonCoords.length} personas con marcador en el mapa · ${withMapsOnly.length} con enlace/dirección · ${locsWithCoords.length} centros de localidad`;
+
+    if (!withPersonCoords.length && !locsWithCoords.length) {
+      mapHintEl.textContent =
+        'Para ver marcadores en el mapa, agrega columnas Latitud y Longitud o pega un Link Google Maps por persona en tus archivos de datos/.';
+      mapHintEl.classList.remove('hidden');
+    } else if (filteredPeople.length > withPersonCoords.length) {
+      const missing = filteredPeople.length - withPersonCoords.length;
+      mapHintEl.textContent = `${missing} persona(s) del filtro aún no tienen coordenadas exactas; siguen visibles en el listado inferior y en Personas.`;
+      mapHintEl.classList.remove('hidden');
+    } else {
+      mapHintEl.classList.add('hidden');
+    }
+  }
+
+  function renderUbicacionesList() {
+    clearNode(locationsListBody);
+    const filteredPeople = getFilteredPersonas();
+    const withMaps = filteredPeople.filter((p) => Boolean(buildGoogleMapsUrl(p)));
+
+    if (!filteredPeople.length) {
+      locationsListBody.appendChild(
+        el('p', { className: 'field-hint', text: 'No hay personas que coincidan con los filtros seleccionados.' })
+      );
+      return;
+    }
+
+    if (!withMaps.length) {
+      locationsListBody.appendChild(
+        el('p', {
+          className: 'field-hint',
+          text: 'Ninguna de las personas filtradas tiene aún Dirección, Latitud/Longitud o Link Google Maps cargado en datos/.',
+        })
+      );
+      return;
+    }
+
+    const tbody = el(
+      'tbody',
+      {},
+      withMaps.map((p) => {
+        const mapsUrl = buildGoogleMapsUrl(p);
+        const ubicText = hasCoords(p)
+          ? `${p.latitud}, ${p.longitud}`
+          : (p.direccion || 'Enlace guardado');
+        return el(
+          'tr',
+          {},
+          el(
+            'td',
+            {},
+            el('strong', { text: fullName(p) }),
+            el('div', { className: 'activity-meta', text: p.codigo_interno })
+          ),
+          el(
+            'td',
+            {},
+            el('div', { text: p.localidad_nombre }),
+            p.sector ? el('div', { className: 'activity-meta', text: p.sector }) : null
+          ),
+          el(
+            'td',
+            {},
+            p.direccion ? el('div', { text: p.direccion }) : null,
+            el('div', { className: 'activity-meta', text: ubicText })
+          ),
+          el(
+            'td',
+            {},
+            createBadge(
+              getCategoryLabel(state.categorias, 'estado_registro', p.estado, p.estado),
+              getStatusBadgeClass(p.estado)
+            )
+          ),
+          el(
+            'td',
+            {},
+            el(
+              'div',
+              { className: 'row-actions' },
+              el('button', {
+                type: 'button',
+                className: 'btn btn-secondary btn-xs',
+                text: 'Ver ficha',
+                onClick: () => openPersonDetailModal(p.id),
+              }),
+              el('a', {
+                href: mapsUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                className: 'btn btn-primary btn-xs',
+                text: 'Google Maps',
+              })
+            )
+          )
+        );
+      })
+    );
+
+    locationsListBody.appendChild(
+      el(
+        'div',
+        { className: 'table-wrap' },
+        el(
+          'table',
+          { className: 'data-table' },
+          el(
+            'thead',
+            {},
+            el(
+              'tr',
+              {},
+              el('th', { text: 'Persona' }),
+              el('th', { text: 'Localidad / Sector' }),
+              el('th', { text: 'Dirección / Coordenadas' }),
+              el('th', { text: 'Estado' }),
+              el('th', { text: 'Acciones' })
+            )
+          ),
+          tbody
+        )
+      )
+    );
+  }
+
+  function renderTerritoryCards() {
+    clearNode(cardsGrid);
+    const filtered = getFilteredLocalidades();
 
     if (!filtered.length) {
       cardsGrid.appendChild(
@@ -120,7 +462,8 @@ export async function renderMapaView(container, { navigateTo }) {
     }
 
     for (const loc of filtered) {
-      const hasCoord = loc.latitud !== null && loc.longitud !== null;
+      const hasCoord = hasCoords(loc);
+      const locLocatedPeople = personas.filter((p) => p.localidad_id === loc.id && hasCoords(p)).length;
       cardsGrid.appendChild(
         el(
           'article',
@@ -139,7 +482,7 @@ export async function renderMapaView(container, { navigateTo }) {
           el(
             'div',
             { className: 'activity-meta' },
-            `${loc.confirmados_count || 0} confirmados · ${loc.seguimientos_pendientes_count || 0} seguimientos pendientes`
+            `${loc.confirmados_count || 0} confirmados · ${locLocatedPeople} con marcador · ${loc.seguimientos_pendientes_count || 0} seg. pendientes`
           ),
           loc.sectores?.length
             ? el(
@@ -168,7 +511,7 @@ export async function renderMapaView(container, { navigateTo }) {
             { style: { marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '8px', borderTop: '1px solid #eee8d8' } },
             el('span', {
               className: 'field-hint',
-              text: hasCoord ? `Centro ref.: ${loc.latitud}, ${loc.longitud}` : 'Sin coordenadas referenciales',
+              text: hasCoord ? `Centro ref.: ${loc.latitud}, ${loc.longitud}` : 'Sin centro referencial',
             }),
             el(
               'div',
@@ -189,37 +532,30 @@ export async function renderMapaView(container, { navigateTo }) {
     }
   }
 
-  selLoc.addEventListener('change', () => {
-    selectedLocId = selLoc.value;
+  function refreshAllSections() {
+    renderStatusAndHints();
+    renderUbicacionesList();
     renderTerritoryCards();
-  });
-  inSector.addEventListener('input', () => {
-    sectorQuery = inSector.value.trim();
-    renderTerritoryCards();
-  });
-
-  renderTerritoryCards();
-
-  // Sección opcional de Leaflet + OpenStreetMap
-  const mapHost = el('div', { id: 'leaflet-map-host', className: 'map-canvas-box hidden' });
-  const mapStatus = el('div', { className: 'alert alert-warning hidden' });
-
-  const btnEnableMap = el('button', {
-    type: 'button',
-    className: 'btn btn-primary btn-sm',
-    text: 'Activar mapa interactivo (OpenStreetMap)',
-  });
+    renderMapMarkers();
+  }
 
   btnEnableMap.addEventListener('click', async () => {
-    if (!withCoords.length) {
+    if (mapInstance) {
+      renderMapMarkers();
+      return;
+    }
+
+    const filteredPeople = getFilteredPersonas();
+    const hasAnyCoord = filteredPeople.some(hasCoords) || getFilteredLocalidades().some(hasCoords);
+    if (!hasAnyCoord) {
       mapStatus.textContent =
-        'Ninguna localidad tiene coordenadas referenciales configuradas todavía. Puedes agregar columnas latitud y longitud en la hoja "Localidades" de tu archivo en datos/.';
+        'Ninguna persona ni localidad tiene coordenadas configuradas todavía. Agrega columnas Latitud y Longitud o un Link Google Maps por persona en tus archivos de datos/.';
       mapStatus.classList.remove('hidden');
       return;
     }
 
     btnEnableMap.disabled = true;
-    btnEnableMap.textContent = 'Cargando mapa…';
+    btnEnableMap.textContent = 'Cargando mapa gratuito…';
     mapStatus.classList.add('hidden');
 
     try {
@@ -227,56 +563,71 @@ export async function renderMapaView(container, { navigateTo }) {
       mapHost.classList.remove('hidden');
       clearNode(mapHost);
 
-      const first = withCoords[0];
-      const map = L.map(mapHost).setView([Number(first.latitud), Number(first.longitud)], 9);
+      const firstPerson = filteredPeople.find(hasCoords);
+      const firstLoc = getFilteredLocalidades().find(hasCoords);
+      const initialCenter = firstPerson
+        ? [Number(firstPerson.latitud), Number(firstPerson.longitud)]
+        : firstLoc
+          ? [Number(firstLoc.latitud), Number(firstLoc.longitud)]
+          : [-40.5739, -73.1335];
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      mapInstance = L.map(mapHost).setView(initialCenter, 12);
+
+      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 16,
-      }).addTo(map);
+        maxZoom: 19,
+      });
+      const satLayer = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: '&copy; Esri / Earthstar Geographics',
+          maxZoom: 19,
+        }
+      );
 
-      const bounds = [];
-      for (const loc of withCoords) {
-        const lat = Number(loc.latitud);
-        const lng = Number(loc.longitud);
-        bounds.push([lat, lng]);
+      osmLayer.addTo(mapInstance);
+      L.control
+        .layers(
+          {
+            'Mapa de calles (OSM)': osmLayer,
+            'Vista satélite': satLayer,
+          },
+          null,
+          { position: 'topright' }
+        )
+        .addTo(mapInstance);
 
-        const marker = L.circleMarker([lat, lng], {
-          radius: Math.min(22, Math.max(9, 8 + Number(loc.personas_count || 0) * 1.5)),
-          color: '#163024',
-          fillColor: '#496343',
-          fillOpacity: 0.72,
-          weight: 2,
-        }).addTo(map);
+      markersLayer = L.layerGroup().addTo(mapInstance);
+      renderMapMarkers();
+      setTimeout(() => mapInstance?.invalidateSize(), 60);
 
-        // Contenido seguro sin HTML crudo
-        const popupEl = el(
-          'div',
-          {},
-          el('strong', { text: loc.nombre }),
-          el('div', { text: `Personas registradas: ${loc.personas_count || 0}` }),
-          loc.sectores?.length
-            ? el('div', { text: `Sectores: ${loc.sectores.map((s) => s.nombre).join(', ')}` })
-            : null
-        );
-        marker.bindPopup(popupEl);
-      }
-
-      if (bounds.length > 1) {
-        map.fitBounds(bounds, { padding: [36, 36] });
-      }
-
-      btnEnableMap.textContent = 'Mapa OpenStreetMap activo';
+      btnEnableMap.disabled = false;
+      btnEnableMap.textContent = 'Centrar marcadores';
     } catch (err) {
       btnEnableMap.disabled = false;
-      btnEnableMap.textContent = 'Reintentar mapa OpenStreetMap';
+      btnEnableMap.textContent = 'Reintentar mapa gratuito';
       mapStatus.textContent = err.message;
       mapStatus.classList.remove('hidden');
-      showToast('Mapa no disponible; usa los filtros territoriales.', 'info');
+      showToast('Mapa no disponible; usa el listado con enlaces directos a Google Maps.', 'info');
     }
   });
 
-  const optionalMapCard = el(
+  selLoc.addEventListener('change', () => {
+    selectedLocId = selLoc.value;
+    refreshAllSections();
+  });
+  selEstado.addEventListener('change', () => {
+    selectedEstado = selEstado.value;
+    refreshAllSections();
+  });
+  inSearch.addEventListener('input', () => {
+    searchQuery = inSearch.value.trim();
+    refreshAllSections();
+  });
+
+  refreshAllSections();
+
+  const interactiveMapCard = el(
     'section',
     { className: 'card' },
     el(
@@ -285,30 +636,46 @@ export async function renderMapaView(container, { navigateTo }) {
       el(
         'div',
         {},
-        el('h2', { className: 'card-title', text: 'Mapa referencial de localidades (opcional)' }),
-        el('p', {
-          className: 'card-subtitle',
-          text: `${withCoords.length} localidades con centro referencial configurado · ${withoutCoords.length} sin coordenadas (visibles en tarjetas y filtros)`,
-        })
+        el('h2', { className: 'card-title', text: 'Mapa interactivo gratuito y marcadores' }),
+        mapSubtitle
       ),
       btnEnableMap
     ),
-    el('div', { className: 'card-body' }, mapStatus, mapHost, !withCoords.length ? el('p', { className: 'field-hint', text: 'Las localidades sin coordenadas no se ubican automáticamente para evitar inventar ubicaciones. Puedes usar todos los filtros territoriales sin necesidad de cargar un mapa externo.' }) : null)
+    el('div', { className: 'card-body' }, mapStatus, mapHost, legend, mapHintEl)
+  );
+
+  const ubicacionesCard = el(
+    'section',
+    { className: 'card' },
+    el(
+      'div',
+      { className: 'card-header' },
+      el(
+        'div',
+        {},
+        el('h2', { className: 'card-title', text: 'Ubicaciones y acceso directo a Google Maps' }),
+        el('p', {
+          className: 'card-subtitle',
+          text: 'Cada persona con coordenadas, dirección o enlace guardado permite abrir su ubicación directo en Google Maps.',
+        })
+      )
+    ),
+    locationsListBody
+  );
+
+  const territoryCardSection = el(
+    'section',
+    { className: 'card' },
+    el(
+      'div',
+      { className: 'card-header' },
+      el('h2', { className: 'card-title', text: 'Localidades y sectores territoriales' })
+    ),
+    el('div', { className: 'card-body' }, cardsGrid)
   );
 
   container.appendChild(toolbar);
-  container.appendChild(
-    el(
-      'section',
-      { className: 'card' },
-      el(
-        'div',
-        { className: 'card-header' },
-        el('h2', { className: 'card-title', text: 'Localidades y sectores territoriales' })
-      ),
-      el('div', { className: 'card-body' }, cardsGrid)
-    )
-  );
-  container.appendChild(optionalMapCard);
+  container.appendChild(interactiveMapCard);
+  container.appendChild(ubicacionesCard);
+  container.appendChild(territoryCardSection);
 }
-

@@ -38,6 +38,9 @@ Si el nombre o carpeta no incluye fecha, se toma automáticamente la fecha de mo
 - `Ultima visita` *(YYYY-MM-DD o DD/MM/YYYY)*
 - `Proxima accion`
 - `Observaciones`
+- `Direccion` *(calle o referencia para mapa y Google Maps)*
+- `Latitud` y `Longitud` *(coordenadas decimales opcionales, ej. `-40.5739` y `-73.1335`)*
+- `Link Google Maps` o `Coordenadas` *(puedes pegar una URL de Google Maps como `https://www.google.com/maps?q=-40.5739,-73.1335` o un par `-40.5739, -73.1335` y el script extrae las coordenadas automáticamente)*
 - `Codigo` *(opcional; si se omite se genera `SC-0001`, `SC-0002`, etc.)*
 
 ### 2. Hoja `Localidades` *(opcional)*

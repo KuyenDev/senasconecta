@@ -22,6 +22,17 @@ function asTriBool(value) {
   return null;
 }
 
+function asCoord(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function asSafeHttpUrl(value) {
+  const raw = String(value ?? '').trim();
+  return /^https?:\/\/\S+$/i.test(raw) ? raw : '';
+}
+
 function normalizeSnapshot(raw) {
   const categorias = raw.categorias && typeof raw.categorias === 'object' ? raw.categorias : {};
   const localidades = asArray(raw.localidades).map((loc, idx) => ({
@@ -29,8 +40,8 @@ function normalizeSnapshot(raw) {
     nombre: String(loc.nombre ?? '').trim() || `Localidad ${idx + 1}`,
     region: String(loc.region ?? '').trim(),
     descripcion: String(loc.descripcion ?? '').trim(),
-    latitud: loc.latitud === null || loc.latitud === undefined || loc.latitud === '' ? null : Number(loc.latitud),
-    longitud: loc.longitud === null || loc.longitud === undefined || loc.longitud === '' ? null : Number(loc.longitud),
+    latitud: asCoord(loc.latitud),
+    longitud: asCoord(loc.longitud),
     activa: loc.activa === undefined ? 1 : Number(loc.activa) ? 1 : 0,
     fecha_creacion: loc.fecha_creacion || '',
     fecha_actualizacion: loc.fecha_actualizacion || '',
@@ -50,6 +61,10 @@ function normalizeSnapshot(raw) {
       localidad_id: locId,
       localidad_nombre: String(p.localidad_nombre ?? locObj?.nombre ?? '').trim() || 'Sin localidad',
       sector: String(p.sector ?? '').trim(),
+      direccion: String(p.direccion ?? '').trim(),
+      latitud: asCoord(p.latitud),
+      longitud: asCoord(p.longitud),
+      mapa_url: asSafeHttpUrl(p.mapa_url),
       fecha_incorporacion: String(p.fecha_incorporacion ?? '').trim(),
       medio_comunicacion: String(p.medio_comunicacion ?? '').trim() || null,
       usa_lsch: asTriBool(p.usa_lsch),
@@ -297,6 +312,10 @@ function buildCsvExport(personas) {
     'apellido',
     'localidad',
     'sector',
+    'direccion',
+    'latitud',
+    'longitud',
+    'mapa_url',
     'fecha_incorporacion',
     'medio_comunicacion',
     'usa_lsch',
@@ -321,6 +340,10 @@ function buildCsvExport(personas) {
       p.apellido,
       p.localidad_nombre,
       p.sector,
+      p.direccion,
+      p.latitud ?? '',
+      p.longitud ?? '',
+      p.mapa_url,
       p.fecha_incorporacion,
       p.medio_comunicacion || '',
       triLabel(p.usa_lsch),
@@ -444,7 +467,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
     const sort = params.get('sort') || 'fecha_actualizacion';
     const order = params.get('order') === 'asc' ? 'asc' : 'desc';
     const page = Math.max(1, Number(params.get('page') || 1));
-    const limit = Math.min(200, Math.max(1, Number(params.get('limit') || 25)));
+    const limit = Math.min(1000, Math.max(1, Number(params.get('limit') || 25)));
 
     let filtered = personas.filter((p) => {
       if (locId !== null && p.localidad_id !== locId) return false;
@@ -455,7 +478,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
       if (usaLsch === 'null' && p.usa_lsch !== null) return false;
       if (q) {
         const haystack = normalizeText(
-          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.proxima_accion} ${p.observaciones}`
+          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion} ${p.proxima_accion} ${p.observaciones}`
         );
         if (!haystack.includes(q)) return false;
       }

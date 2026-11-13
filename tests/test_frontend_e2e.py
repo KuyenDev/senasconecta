@@ -95,6 +95,10 @@ class FrontendStaticE2ETests(unittest.TestCase):
                                 '2026-02-15',
                                 'Visitar en marzo',
                                 '=SUM(A1)',
+                                'Av. República 410',
+                                -40.573912,
+                                -73.133541,
+                                'https://www.google.com/maps?q=-40.573912,-73.133541',
                             ],
                             [
                                 '',
