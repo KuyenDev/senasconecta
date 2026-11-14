@@ -480,6 +480,36 @@ async function runScenario() {
     assert(gmapsLink && (gmapsLink.getAttribute('href') || '').startsWith('https://www.google.com/maps'), 'Mapa includes Google Maps direct action');
     assert(!mapText.includes('Definir centro'), 'Mapa has no admin coordinate edit buttons');
 
+    // Probar extender/contraer y ocultar/mostrar mapa
+    const btnExpand = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Extender mapa');
+    const btnCollapse = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Ocultar mapa');
+    assert(btnExpand && btnCollapse, 'Mapa includes Extender mapa and Ocultar mapa buttons');
+    const mapCard = btnExpand.parentNode.parentNode.parentNode;
+    const mapCardBody = mainEl.querySelector('#leaflet-map-host').parentNode;
+    btnExpand.click();
+    await flush(30);
+    assert(mapCard.classList.contains('map-card-expanded'), 'Extender mapa activates expanded card class');
+    assert(document.body.classList.contains('map-expanded-open'), 'Body locks scroll when map is expanded');
+    assert(btnExpand.textContent === 'Contraer mapa', 'Expand button toggles to Contraer mapa');
+    btnExpand.click();
+    await flush(30);
+    assert(!mapCard.classList.contains('map-card-expanded'), 'Contraer mapa returns map to normal size');
+    assert(!document.body.classList.contains('map-expanded-open'), 'Body releases scroll after Contraer mapa');
+    assert(btnExpand.textContent === 'Extender mapa', 'Expand button toggles back to Extender mapa');
+    btnExpand.click();
+    await flush(30);
+    btnCollapse.click();
+    await flush(30);
+    assert(!mapCard.classList.contains('map-card-expanded'), 'Ocultar mapa exits expanded state automatically');
+    assert(mapCardBody.classList.contains('hidden'), 'Ocultar mapa hides map card body');
+    assert(btnCollapse.textContent === 'Mostrar mapa', 'Collapse button switches to Mostrar mapa');
+    assert(btnExpand.classList.contains('hidden'), 'Extender button hidden while map collapsed');
+    btnCollapse.click();
+    await flush(30);
+    assert(!mapCardBody.classList.contains('hidden'), 'Mostrar mapa restores map card body');
+    assert(btnCollapse.textContent === 'Ocultar mapa', 'Collapse button switches back to Ocultar mapa');
+    assert(!btnExpand.classList.contains('hidden'), 'Extender button restores when map reopened');
+
     // Filtrar en Mapa por Río Negro (Mateo sin coordenadas) -> contador debe actualizar a 0 marcadores
     const mapFilterLoc = mainEl.querySelector('#map-filter-loc');
     const rioOpt = mapFilterLoc.options.find((o) => o.textContent.includes('Río Negro'));

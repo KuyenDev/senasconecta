@@ -1083,6 +1083,50 @@ textarea {
 
 /* ---------- Mapa Territorial ---------- */
 
+body.map-expanded-open {
+  overflow: hidden;
+}
+
+.map-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-card-expanded {
+  position: fixed;
+  inset: 14px;
+  z-index: 70;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 0 100vmax rgba(16, 36, 27, 0.56), var(--shadow-lg);
+}
+
+.map-card-expanded .card-header {
+  flex-shrink: 0;
+}
+
+.map-card-expanded .card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+}
+
+.map-card-expanded .map-canvas-box {
+  flex: 1;
+  height: auto;
+  min-height: 280px;
+}
+
+.map-card-expanded .map-legend {
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
 .map-canvas-box {
   height: 460px;
   border-radius: var(--radius-md);
@@ -1443,6 +1487,18 @@ textarea {
 
   .chart-bar-value {
     text-align: left;
+  }
+
+  .map-card-expanded {
+    inset: 6px;
+  }
+
+  .map-card-expanded .card-header {
+    padding: 12px 14px;
+  }
+
+  .map-card-expanded .card-body {
+    padding: 10px 12px;
   }
 }
 

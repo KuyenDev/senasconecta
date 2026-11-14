@@ -200,8 +200,26 @@ export async function renderMapaView(container, { navigateTo }) {
     text: 'Activar mapa con marcadores (Gratuito)',
   });
 
+  const btnExpandMap = el('button', {
+    type: 'button',
+    className: 'btn btn-secondary btn-sm',
+    text: 'Extender mapa',
+    ariaExpanded: 'false',
+    title: 'Ampliar el mapa a pantalla completa',
+  });
+
+  const btnToggleCollapse = el('button', {
+    type: 'button',
+    className: 'btn btn-outline btn-sm',
+    text: 'Ocultar mapa',
+    ariaExpanded: 'true',
+    title: 'Ocultar o volver a mostrar el panel del mapa',
+  });
+
   let mapInstance = null;
   let markersLayer = null;
+  let isExpanded = false;
+  let isCollapsed = false;
 
   function renderMapMarkers() {
     if (!mapInstance || !markersLayer || !window.L) return;
@@ -604,10 +622,12 @@ export async function renderMapaView(container, { navigateTo }) {
 
       markersLayer = L.layerGroup().addTo(mapInstance);
       renderMapMarkers();
-      setTimeout(() => mapInstance?.invalidateSize(), 60);
+      syncMapSize();
 
       btnEnableMap.disabled = false;
       btnEnableMap.textContent = 'Centrar marcadores';
+      btnEnableMap.classList.remove('btn-primary');
+      btnEnableMap.classList.add('btn-secondary');
     } catch (err) {
       btnEnableMap.disabled = false;
       btnEnableMap.textContent = 'Reintentar mapa gratuito';
@@ -634,6 +654,8 @@ export async function renderMapaView(container, { navigateTo }) {
 
   refreshAllSections();
 
+  const mapBody = el('div', { className: 'card-body' }, mapStatus, mapHost, legend, mapHintEl);
+
   const interactiveMapCard = el(
     'section',
     { className: 'card' },
@@ -646,10 +668,102 @@ export async function renderMapaView(container, { navigateTo }) {
         el('h2', { className: 'card-title', text: 'Mapa interactivo gratuito y marcadores' }),
         mapSubtitle
       ),
-      btnEnableMap
+      el('div', { className: 'map-header-actions' }, btnEnableMap, btnExpandMap, btnToggleCollapse)
     ),
-    el('div', { className: 'card-body' }, mapStatus, mapHost, legend, mapHintEl)
+    mapBody
   );
+
+  const isRealBrowser =
+    typeof HTMLElement === 'function' && mapHost instanceof HTMLElement && typeof window.XMLHttpRequest === 'function';
+
+  function syncMapSize() {
+    if (!mapInstance) return;
+    setTimeout(() => mapInstance?.invalidateSize({ pan: false }), 60);
+    setTimeout(() => mapInstance?.invalidateSize({ pan: false }), 200);
+  }
+
+  function isDetailModalOpen() {
+    const modalRoot = document.getElementById('modal-root');
+    return Boolean(modalRoot && !modalRoot.classList.contains('hidden'));
+  }
+
+  function detachGlobalExpandListeners() {
+    document.removeEventListener('keydown', handleExpandEscape);
+    window.removeEventListener?.('hashchange', handleRouteLeaveCleanup);
+    document.body?.classList?.remove('map-expanded-open');
+  }
+
+  function handleRouteLeaveCleanup() {
+    if (isExpanded) setExpanded(false);
+    else detachGlobalExpandListeners();
+  }
+
+  function handleExpandEscape(ev) {
+    if (!interactiveMapCard.isConnected) {
+      isExpanded = false;
+      detachGlobalExpandListeners();
+      return;
+    }
+    if (ev.key === 'Escape' && isExpanded && !isDetailModalOpen()) {
+      ev.preventDefault?.();
+      setExpanded(false);
+    }
+  }
+
+  function setCollapsed(nextCollapsed) {
+    isCollapsed = Boolean(nextCollapsed);
+    if (isCollapsed && isExpanded) {
+      setExpanded(false);
+    }
+    mapBody.classList.toggle('hidden', isCollapsed);
+    btnEnableMap.classList.toggle('hidden', isCollapsed);
+    btnExpandMap.classList.toggle('hidden', isCollapsed);
+    btnToggleCollapse.textContent = isCollapsed ? 'Mostrar mapa' : 'Ocultar mapa';
+    btnToggleCollapse.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+    btnToggleCollapse.classList.toggle('btn-primary', isCollapsed);
+    btnToggleCollapse.classList.toggle('btn-outline', !isCollapsed);
+    if (!isCollapsed) {
+      syncMapSize();
+    }
+  }
+
+  function setExpanded(nextExpanded) {
+    const target = Boolean(nextExpanded);
+    if (target && isCollapsed) {
+      setCollapsed(false);
+    }
+    isExpanded = target;
+    interactiveMapCard.classList.toggle('map-card-expanded', isExpanded);
+    document.body?.classList?.toggle('map-expanded-open', isExpanded);
+    btnExpandMap.textContent = isExpanded ? 'Contraer mapa' : 'Extender mapa';
+    btnExpandMap.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    btnExpandMap.setAttribute(
+      'title',
+      isExpanded ? 'Volver el mapa al tamaño normal (Esc)' : 'Ampliar el mapa a pantalla completa'
+    );
+    btnExpandMap.classList.toggle('btn-primary', isExpanded);
+    btnExpandMap.classList.toggle('btn-secondary', !isExpanded);
+
+    if (isExpanded) {
+      document.addEventListener('keydown', handleExpandEscape);
+      window.addEventListener('hashchange', handleRouteLeaveCleanup);
+      if (!mapInstance && isRealBrowser && personas.some(hasCoords)) {
+        activateMap();
+      }
+    } else {
+      detachGlobalExpandListeners();
+    }
+    syncMapSize();
+  }
+
+  btnExpandMap.addEventListener('click', () => setExpanded(!isExpanded));
+  btnToggleCollapse.addEventListener('click', () => {
+    const reopening = isCollapsed;
+    setCollapsed(!isCollapsed);
+    if (reopening && !mapInstance && isRealBrowser && personas.some(hasCoords)) {
+      activateMap();
+    }
+  });
 
   const ubicacionesCard = el(
     'section',
@@ -686,8 +800,6 @@ export async function renderMapaView(container, { navigateTo }) {
   container.appendChild(ubicacionesCard);
   container.appendChild(territoryCardSection);
 
-  const isRealBrowser =
-    typeof HTMLElement === 'function' && mapHost instanceof HTMLElement && typeof window.XMLHttpRequest === 'function';
   if (isRealBrowser && personas.some(hasCoords)) {
     activateMap();
   }
