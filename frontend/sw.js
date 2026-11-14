@@ -177,3 +177,4 @@ if (typeof self !== 'undefined' && typeof self.addEventListener === 'function') 
     event.respondWith(staleWhileRevalidate(request, APP_CACHE));
   });
 }
+
