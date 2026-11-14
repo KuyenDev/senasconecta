@@ -718,6 +718,17 @@ async function runScenario() {
     assert(document.dispatchEvent({ type: 'copy', target: inputTarget }), 'copy allowed inside search input');
     assert(document.dispatchEvent({ type: 'keydown', key: 'c', ctrlKey: true, target: inputTarget }), 'Ctrl+C allowed inside search input');
 
+    let selectionCleared = false;
+    globalThis.getSelection = () => ({
+      isCollapsed: false,
+      anchorNode: textTarget,
+      removeAllRanges() {
+        selectionCleared = true;
+      },
+    });
+    document.dispatchEvent({ type: 'selectionchange' });
+    assert(selectionCleared, 'selectionchange clears non-editable text selection');
+
     print('E2E_LIVE_PUBLISHED_OK');
     return;
   }

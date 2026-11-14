@@ -61,11 +61,20 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body {
@@ -78,15 +87,20 @@ body {
   overscroll-behavior-y: contain;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
+  -moz-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
 
+a,
 img,
-svg {
+svg,
+picture,
+canvas {
   -webkit-user-drag: none;
   user-drag: none;
   -webkit-user-select: none;
+  -moz-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
@@ -95,6 +109,7 @@ input,
 textarea,
 [contenteditable="true"] {
   -webkit-user-select: text;
+  -moz-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
 }

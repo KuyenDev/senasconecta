@@ -351,8 +351,12 @@ function setupPwaFeatures() {
     return;
   }
 
+  const hadController = Boolean(nav.serviceWorker.controller);
+  let reloadedForSwUpdate = false;
+
   nav.serviceWorker.addEventListener('controllerchange', () => {
-    if (shouldReloadOnControllerChange) {
+    if ((hadController || shouldReloadOnControllerChange) && !reloadedForSwUpdate) {
+      reloadedForSwUpdate = true;
       shouldReloadOnControllerChange = false;
       window.location.reload();
     }
@@ -365,8 +369,9 @@ function setupPwaFeatures() {
   }
 
   nav.serviceWorker
-    .register('./sw.js', { scope: './' })
+    .register('./sw.js', { scope: './', updateViaCache: 'none' })
     .then((registration) => {
+      registration.update().catch(() => {});
       if (registration.waiting && nav.serviceWorker.controller) {
         exposeUpdateButton(registration.waiting);
       }
@@ -376,7 +381,6 @@ function setupPwaFeatures() {
         incoming.addEventListener('statechange', () => {
           if (incoming.state === 'installed' && nav.serviceWorker.controller) {
             exposeUpdateButton(incoming);
-            showToast('Hay una nueva versión disponible. Pulsa "Actualizar app".', 'info');
           }
         });
       });
@@ -397,29 +401,48 @@ function isEditableElement(target) {
 }
 
 function setupInteractionProtection() {
-  document.addEventListener('dragstart', (ev) => {
+  const handleDragStart = (ev) => {
     const node = ev.target?.nodeType === 3 ? ev.target.parentElement : ev.target;
     const tag = String(node?.tagName || '').toUpperCase();
     if (tag === 'IMG' || !isEditableElement(node)) {
       ev.preventDefault?.();
     }
-  });
+  };
+
+  window.addEventListener('dragstart', handleDragStart, { capture: true });
+  document.addEventListener('dragstart', handleDragStart, { capture: true });
 
   for (const eventName of ['selectstart', 'copy', 'cut', 'contextmenu']) {
-    document.addEventListener(eventName, (ev) => {
-      if (!isEditableElement(ev.target)) {
-        ev.preventDefault?.();
-      }
-    });
+    document.addEventListener(
+      eventName,
+      (ev) => {
+        if (!isEditableElement(ev.target)) {
+          ev.preventDefault?.();
+        }
+      },
+      { capture: true }
+    );
   }
 
-  document.addEventListener('keydown', (ev) => {
-    if (!(ev.ctrlKey || ev.metaKey)) return;
-    const key = String(ev.key || '').toLowerCase();
-    if ((key === 'c' || key === 'x' || key === 'a') && !isEditableElement(ev.target)) {
-      ev.preventDefault?.();
+  document.addEventListener('selectionchange', () => {
+    if (isEditableElement(document.activeElement)) return;
+    const sel = typeof window !== 'undefined' ? window.getSelection?.() : null;
+    if (sel && !sel.isCollapsed && !isEditableElement(sel.anchorNode)) {
+      sel.removeAllRanges();
     }
   });
+
+  document.addEventListener(
+    'keydown',
+    (ev) => {
+      if (!(ev.ctrlKey || ev.metaKey)) return;
+      const key = String(ev.key || '').toLowerCase();
+      if ((key === 'c' || key === 'x' || key === 'a') && !isEditableElement(ev.target)) {
+        ev.preventDefault?.();
+      }
+    },
+    { capture: true }
+  );
 }
 
 function bindEvents() {

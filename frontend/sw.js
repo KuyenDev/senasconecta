@@ -6,7 +6,7 @@
  * - Mantiene rutas relativas compatibles con subcarpetas de GitHub Pages (/senasconecta/).
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const APP_CACHE = `senasconecta-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `senasconecta-data-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `senasconecta-runtime-${CACHE_VERSION}`;
@@ -50,25 +50,31 @@ function isCacheableResponse(response) {
   return Boolean(response && response.ok && (response.type === 'basic' || response.type === 'cors'));
 }
 
-async function precacheAssets() {
-  const shellCache = await caches.open(APP_CACHE);
-  await shellCache.addAll(PRECACHE_SHELL_URLS);
-
-  const dataCache = await caches.open(DATA_CACHE);
-  await Promise.allSettled(
-    PRECACHE_DATA_URLS.map(async (relPath) => {
+async function precacheList(cacheName, urls) {
+  const cache = await caches.open(cacheName);
+  await Promise.all(
+    urls.map(async (relPath) => {
       const response = await fetch(relPath, { cache: 'reload' });
       if (isCacheableResponse(response)) {
-        await dataCache.put(relPath, response);
+        await cache.put(relPath, response);
       }
     })
   );
 }
 
+async function precacheAssets() {
+  await precacheList(APP_CACHE, PRECACHE_SHELL_URLS);
+  await Promise.allSettled([precacheList(DATA_CACHE, PRECACHE_DATA_URLS)]);
+}
+
 async function networkFirst(request, cacheName, fallbackUrl = null) {
   const cache = await caches.open(cacheName);
   try {
-    const networkResponse = await fetch(request);
+    const fetchTarget =
+      request.mode === 'navigate' || request.cache === 'no-store'
+        ? request
+        : new Request(request.url, { cache: 'no-cache' });
+    const networkResponse = await fetch(fetchTarget);
     if (isCacheableResponse(networkResponse)) {
       await cache.put(request, networkResponse.clone());
     }
@@ -111,15 +117,7 @@ async function staleWhileRevalidate(request, cacheName) {
 
 if (typeof self !== 'undefined' && typeof self.addEventListener === 'function') {
   self.addEventListener('install', (event) => {
-    event.waitUntil(
-      precacheAssets().then(() => {
-        // En la primera instalación toma el control inmediato para habilitar soporte offline al instante.
-        if (self.registration && !self.registration.active) {
-          return self.skipWaiting();
-        }
-        return undefined;
-      })
-    );
+    event.waitUntil(precacheAssets().then(() => self.skipWaiting()));
   });
 
   self.addEventListener('activate', (event) => {
@@ -171,6 +169,17 @@ if (typeof self !== 'undefined' && typeof self.addEventListener === 'function') 
     if (request.mode === 'navigate') {
       const indexFallback = new URL('./index.html', scopeUrl).toString();
       event.respondWith(networkFirst(request, APP_CACHE, indexFallback));
+      return;
+    }
+
+    if (
+      relativePath === '' ||
+      relativePath.endsWith('.html') ||
+      relativePath.endsWith('.css') ||
+      relativePath.endsWith('.js') ||
+      relativePath.endsWith('.webmanifest')
+    ) {
+      event.respondWith(networkFirst(request, APP_CACHE));
       return;
     }
 
