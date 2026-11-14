@@ -1,7 +1,7 @@
 {
   "app": "senasconecta",
   "grupo": "Grupo Señas Osorno",
-  "ultima_actualizacion": "2026-11-13T23:34:18.000Z",
+  "ultima_actualizacion": "2026-11-14T00:46:10.000Z",
   "fuentes_excel": [
     "2026-06-30_mapa_senas_junio.kml"
   ],
@@ -16,7 +16,6 @@
   "archivos_requieren_revision": [],
   "totales": {
     "localidades": 4,
-    "personas": 72,
-    "seguimientos": 0
+    "personas": 72
   }
 }

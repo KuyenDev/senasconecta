@@ -482,7 +482,7 @@ export async function renderMapaView(container, { navigateTo }) {
           el(
             'div',
             { className: 'activity-meta' },
-            `${loc.confirmados_count || 0} confirmados · ${locLocatedPeople} con marcador · ${loc.seguimientos_pendientes_count || 0} seg. pendientes`
+            `${loc.confirmados_count || 0} confirmados · ${locLocatedPeople} con marcador en mapa`
           ),
           loc.sectores?.length
             ? el(

@@ -1,6 +1,6 @@
 # Carpeta de datos y archivos de entrega — SeñasConecta (Grupo Señas Osorno)
 
-Coloca aquí los archivos que recibas con los datos de personas sordas o seguimientos, indicando la **fecha de entrega** para que el sistema integre todo en `frontend/data/*.json` **priorizando siempre el registro más reciente**.
+Coloca aquí los archivos que recibas con los datos de personas sordas, indicando la **fecha de entrega** para que el sistema integre todo en `frontend/data/*.json` **priorizando siempre el registro más reciente**.
 
 ## Formatos admitidos
 
@@ -46,9 +46,6 @@ Si el nombre o carpeta no incluye fecha, se toma automáticamente la fecha de mo
 
 ### 2. Hoja `Localidades` *(opcional)*
 - `Nombre`, `Region`, `Descripcion`, `Latitud`, `Longitud`, `Activa` (`Sí`/`No`)
-
-### 3. Hoja `Seguimientos` *(opcional)*
-- `Codigo persona` o `Nombre persona`, `Localidad`, `Fecha`, `Tipo`, `Estado`, `Descripcion`
 
 ## Integrar los cambios al sitio web
 

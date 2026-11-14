@@ -31,18 +31,18 @@ class FrontendUnitsAndSecurityTests(unittest.TestCase):
                     self.assertNotIn('ImportError', proc.stderr, proc.stderr)
 
     def test_published_json_database_files_valid(self):
-        required = ['categorias.json', 'localidades.json', 'personas.json', 'seguimientos.json', 'meta.json']
+        required = ['categorias.json', 'localidades.json', 'personas.json', 'meta.json']
         for name in required:
             path = DATA_DIR / name
             self.assertTrue(path.exists(), f'Falta archivo de datos publicado: {path}')
+        self.assertFalse((DATA_DIR / 'seguimientos.json').exists())
 
         categorias = json.loads((DATA_DIR / 'categorias.json').read_text(encoding='utf-8'))
         localidades = json.loads((DATA_DIR / 'localidades.json').read_text(encoding='utf-8'))
         personas = json.loads((DATA_DIR / 'personas.json').read_text(encoding='utf-8'))
-        seguimientos = json.loads((DATA_DIR / 'seguimientos.json').read_text(encoding='utf-8'))
         meta = json.loads((DATA_DIR / 'meta.json').read_text(encoding='utf-8'))
 
-        for group in ('estado_registro', 'medio_comunicacion', 'nivel_lsch', 'tipo_seguimiento', 'estado_seguimiento'):
+        for group in ('estado_registro', 'medio_comunicacion', 'nivel_lsch'):
             self.assertIn(group, categorias)
             self.assertGreater(len(categorias[group]), 0)
 
@@ -50,9 +50,10 @@ class FrontendUnitsAndSecurityTests(unittest.TestCase):
         for base_loc in ('Osorno', 'Río Negro', 'San Pablo'):
             self.assertIn(base_loc, loc_names)
         self.assertIsInstance(personas, list)
-        self.assertIsInstance(seguimientos, list)
         self.assertEqual(meta['app'], 'senasconecta')
         self.assertEqual(meta['grupo'], 'Grupo Señas Osorno')
+        self.assertNotIn('seguimientos', meta.get('totales', {}))
+        self.assertNotIn('data-route="seguimientos"', (FRONTEND_DIR / 'index.html').read_text(encoding='utf-8'))
 
     def test_security_and_static_hygiene_invariants(self):
         forbidden_tokens = [

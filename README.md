@@ -2,7 +2,7 @@
 
 > *"Conectando personas, acercando corazones."*
 
-**SeñasConecta** es una aplicación web **100 % estática** diseñada para organizar y consultar de forma clara la información territorial de personas sordas vinculada al **Grupo Señas Osorno**, sus localidades, sectores, preferencias de comunicación en Lengua de Señas Chilena (LSCh) y seguimientos territoriales.
+**SeñasConecta** es una aplicación web **100 % estática** diseñada para acumular y consultar de forma clara la información territorial de personas sordas vinculada al **Grupo Señas Osorno**, sus localidades, sectores, ubicaciones en mapa y preferencias de comunicación en Lengua de Señas Chilena (LSCh).
 
 Funciona sin servidor, sin base de datos externa y sin inicio de sesión: lee directamente archivos JSON estáticos (`frontend/data/*.json`) integrados desde `datos/`, y se publica automáticamente en **GitHub Pages**.
 
@@ -27,7 +27,6 @@ señasConecta/
 │   │   ├── categorias.json
 │   │   ├── localidades.json
 │   │   ├── personas.json
-│   │   ├── seguimientos.json
 │   │   └── meta.json
 │   └── js/
 ├── scripts/

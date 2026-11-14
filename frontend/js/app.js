@@ -11,18 +11,17 @@ import { renderEstadisticasView } from './views/estadisticas.js';
 import { renderMapaView } from './views/mapa.js';
 import { renderPersonasView } from './views/personas.js';
 import { renderRespaldosView } from './views/respaldos.js';
-import { renderSeguimientosView } from './views/seguimientos.js';
 import { renderTerritorioView } from './views/territorio.js';
 
 const ROUTES = {
   dashboard: {
     title: 'Panel principal',
-    subtitle: 'Grupo Señas Osorno · Resumen territorial y actividad reciente',
+    subtitle: 'Grupo Señas Osorno · Resumen territorial y registros acumulados',
     render: renderDashboardView,
   },
   personas: {
     title: 'Registro de personas',
-    subtitle: 'Fichas individuales, comunicación y filtros territoriales',
+    subtitle: 'Fichas individuales, ubicación, comunicación y notas acumuladas',
     render: renderPersonasView,
   },
   territorio: {
@@ -30,14 +29,9 @@ const ROUTES = {
     subtitle: 'Organización territorial del Grupo Señas Osorno',
     render: renderTerritorioView,
   },
-  seguimientos: {
-    title: 'Seguimiento territorial',
-    subtitle: 'Visitas, confirmaciones e interpretaciones pendientes',
-    render: renderSeguimientosView,
-  },
   mapa: {
     title: 'Mapa territorial',
-    subtitle: 'Localidades, sectores y mapa opcional OpenStreetMap',
+    subtitle: 'Ubicación de personas, localidades, sectores y enlace a Google Maps',
     render: renderMapaView,
   },
   estadisticas: {

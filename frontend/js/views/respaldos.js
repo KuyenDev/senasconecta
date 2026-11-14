@@ -98,7 +98,7 @@ export async function renderRespaldosView(container, { navigateTo, refreshMetaUi
         el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Grupo' }), el('span', { className: 'detail-val', text: meta.grupo || 'Grupo Señas Osorno' })),
         el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Última actualización' }), el('span', { className: 'detail-val', text: meta.ultima_actualizacion ? formatDateTime(meta.ultima_actualizacion) : '—' })),
         el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Localidades' }), el('span', { className: 'detail-val', text: String(totales.localidades ?? state.localidades.length) })),
-        el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Personas / Seguimientos' }), el('span', { className: 'detail-val', text: `${totales.personas ?? 0} / ${totales.seguimientos ?? 0}` }))
+        el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Personas registradas' }), el('span', { className: 'detail-val', text: String(totales.personas ?? 0) }))
       ),
       el(
         'div',
@@ -122,7 +122,7 @@ export async function renderRespaldosView(container, { navigateTo, refreshMetaUi
       el(
         'div',
         { className: 'alert alert-info', style: { marginBottom: 0 } },
-        'Para actualizar los datos publicados: coloca archivos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md) con su fecha de entrega en datos/ (por ejemplo 2026-11-15_osorno.docx) y ejecuta "python3 scripts/publicar.py". Siempre prevalecen los datos de fecha más reciente.'
+        'Para actualizar los datos publicados: coloca archivos (.xlsx, .ods, .csv, .tsv, .json, .docx, .odt, .txt, .md, .kml, .kmz) con su fecha de entrega en datos/ (por ejemplo 2026-11-15_osorno.docx) y ejecuta "python3 scripts/publicar.py". Siempre prevalecen los datos de fecha más reciente.'
       )
     )
   );

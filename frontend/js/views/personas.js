@@ -10,6 +10,7 @@ import {
 } from '../components.js';
 import { state } from '../state.js';
 import {
+  buildGoogleMapsUrl,
   clearNode,
   createBadge,
   el,
@@ -39,7 +40,7 @@ export async function renderPersonasView(container) {
     type: 'search',
     className: 'input',
     value: filters.q,
-    placeholder: 'Buscar por nombre, apellido, código SC o sector…',
+    placeholder: 'Buscar por nombre, dirección, sector, notas o código…',
   });
 
   const selLoc = el(
@@ -75,6 +76,7 @@ export async function renderPersonasView(container) {
     'select',
     { id: 'filter-sort', className: 'select' },
     el('option', { value: 'fecha_actualizacion', text: 'Orden: Actualización' }),
+    el('option', { value: 'fecha_dato', text: 'Orden: Fecha del dato' }),
     el('option', { value: 'nombre', text: 'Orden: Nombre' }),
     el('option', { value: 'localidad', text: 'Orden: Localidad' }),
     el('option', { value: 'estado', text: 'Orden: Estado' }),
@@ -171,7 +173,7 @@ export async function renderPersonasView(container) {
         'div',
         {},
         el('h2', { className: 'card-title', text: `Personas registradas (${total})` }),
-        el('p', { className: 'card-subtitle', text: 'Haz clic en cualquier nombre para consultar su ficha completa y seguimientos' })
+        el('p', { className: 'card-subtitle', text: 'Haz clic en cualquier nombre para consultar su ficha completa, notas y mapa' })
       )
     );
     listCard.appendChild(header);
@@ -205,6 +207,8 @@ export async function renderPersonasView(container) {
         if (p.necesita_interpretacion === 1) {
           commParts.push('Req. interpretación');
         }
+        const mapsUrl = buildGoogleMapsUrl(p);
+        const locationDetail = [p.sector, p.direccion].filter(Boolean).join(' · ');
 
         return el(
           'tr',
@@ -223,15 +227,18 @@ export async function renderPersonasView(container) {
               },
               fullName(p)
             ),
+            p.observaciones
+              ? el('div', { className: 'activity-meta', text: p.observaciones })
+              : null,
             p.proxima_accion
-              ? el('div', { className: 'activity-meta', text: `Próx.: ${p.proxima_accion}` })
+              ? el('div', { className: 'activity-meta', text: p.proxima_accion })
               : null
           ),
           el(
             'td',
             {},
             el('div', { text: p.localidad_nombre || 'Sin localidad' }),
-            p.sector ? el('div', { className: 'activity-meta', text: p.sector }) : null
+            locationDetail ? el('div', { className: 'activity-meta', text: locationDetail }) : null
           ),
           el(
             'td',
@@ -252,7 +259,10 @@ export async function renderPersonasView(container) {
             'td',
             {},
             el('div', { text: p.fecha_ultima_visita ? formatDate(p.fecha_ultima_visita) : '—' }),
-            el('div', { className: 'activity-meta', text: `Act. ${formatDate(p.fecha_actualizacion)}` })
+            el('div', {
+              className: 'activity-meta',
+              text: p.fecha_dato ? `Dato ${formatDate(p.fecha_dato)}` : `Act. ${formatDate(p.fecha_actualizacion)}`,
+            })
           ),
           el(
             'td',
@@ -265,7 +275,16 @@ export async function renderPersonasView(container) {
                 className: 'btn btn-outline btn-xs',
                 text: 'Ver ficha',
                 onClick: () => openPersonDetailModal(p.id),
-              })
+              }),
+              mapsUrl
+                ? el('a', {
+                    href: mapsUrl,
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    className: 'btn btn-secondary btn-xs',
+                    text: 'Maps',
+                  })
+                : null
             )
           )
         );
@@ -282,11 +301,11 @@ export async function renderPersonasView(container) {
           'tr',
           {},
           el('th', { scope: 'col', text: 'Código' }),
-          el('th', { scope: 'col', text: 'Nombre' }),
-          el('th', { scope: 'col', text: 'Localidad / Sector' }),
+          el('th', { scope: 'col', text: 'Nombre / Notas' }),
+          el('th', { scope: 'col', text: 'Localidad / Dirección' }),
           el('th', { scope: 'col', text: 'Comunicación' }),
           el('th', { scope: 'col', text: 'Estado' }),
-          el('th', { scope: 'col', text: 'Última visita' }),
+          el('th', { scope: 'col', text: 'Visita / Dato' }),
           el('th', { scope: 'col', text: 'Acciones' })
         )
       ),

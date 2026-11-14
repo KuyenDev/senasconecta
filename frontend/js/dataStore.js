@@ -86,39 +86,12 @@ function normalizeSnapshot(raw) {
     };
   });
 
-  const personById = new Map(personas.map((p) => [p.id, p]));
-
-  const seguimientos = asArray(raw.seguimientos).map((s, idx) => {
-    const personId = s.persona_id === null || s.persona_id === undefined || s.persona_id === '' ? null : Number(s.persona_id);
-    const person = personId !== null ? personById.get(personId) : null;
-    const locId = s.localidad_id !== null && s.localidad_id !== undefined && s.localidad_id !== ''
-      ? Number(s.localidad_id)
-      : (person?.localidad_id ?? null);
-    const locObj = locId !== null ? locById.get(locId) : null;
-    return {
-      id: Number(s.id ?? idx + 1),
-      persona_id: personId,
-      localidad_id: locId,
-      persona_nombre: person?.nombre ?? String(s.persona_nombre ?? '').trim(),
-      persona_apellido: person?.apellido ?? String(s.persona_apellido ?? '').trim(),
-      persona_codigo: person?.codigo_interno ?? String(s.persona_codigo ?? '').trim(),
-      localidad_nombre: String(s.localidad_nombre ?? locObj?.nombre ?? person?.localidad_nombre ?? '').trim() || 'Sin localidad',
-      tipo: String(s.tipo ?? 'proxima_accion').trim() || 'proxima_accion',
-      estado: String(s.estado ?? 'pendiente').trim() || 'pendiente',
-      fecha: String(s.fecha ?? '').trim(),
-      descripcion: String(s.descripcion ?? '').trim(),
-      fecha_creacion: String(s.fecha_creacion ?? '').trim(),
-      fecha_actualizacion: String(s.fecha_actualizacion ?? s.fecha_creacion ?? '').trim(),
-    };
-  });
-
   const meta = raw.meta && typeof raw.meta === 'object'
     ? {
         ...raw.meta,
         totales: raw.meta.totales || {
           localidades: localidades.length,
           personas: personas.length,
-          seguimientos: seguimientos.length,
         },
       }
     : {
@@ -129,11 +102,10 @@ function normalizeSnapshot(raw) {
         totales: {
           localidades: localidades.length,
           personas: personas.length,
-          seguimientos: seguimientos.length,
         },
       };
 
-  return { categorias, localidades, personas, seguimientos, meta };
+  return { categorias, localidades, personas, meta };
 }
 
 async function fetchJson(relativeUrl) {
@@ -167,18 +139,16 @@ export async function loadPublishedDataset(forceReload = false) {
   }
 
   loadPromise = (async () => {
-    const [categorias, localidades, personas, seguimientos, meta] = await Promise.all([
+    const [categorias, localidades, personas, meta] = await Promise.all([
       fetchJson('./data/categorias.json'),
       fetchJson('./data/localidades.json'),
       fetchJson('./data/personas.json'),
-      fetchJson('./data/seguimientos.json'),
       fetchJson('./data/meta.json').catch(() => null),
     ]);
     publishedSnapshot = normalizeSnapshot({
       categorias,
       localidades,
       personas,
-      seguimientos,
       meta,
     });
     return publishedSnapshot;
@@ -211,7 +181,6 @@ export async function activatePreviewSnapshot(rawBackup, fileName = 'respaldo.js
     categorias: rawBackup.categorias || base.categorias,
     localidades: Array.isArray(rawBackup.localidades) ? rawBackup.localidades : base.localidades,
     personas: Array.isArray(rawBackup.personas) ? rawBackup.personas : [],
-    seguimientos: Array.isArray(rawBackup.seguimientos) ? rawBackup.seguimientos : [],
     meta: {
       app: 'senasconecta',
       grupo: rawBackup.grupo || 'Grupo Señas Osorno',
@@ -267,15 +236,9 @@ function compareValues(a, b, order = 'asc') {
   return strA.localeCompare(strB, 'es', { sensitivity: 'base' }) * dir;
 }
 
-function computeLocalidadDetails(loc, personas, seguimientos) {
+function computeLocalidadDetails(loc, personas) {
   const personasLoc = personas.filter((p) => p.localidad_id === loc.id);
   const confirmadosCount = personasLoc.filter((p) => p.estado === 'confirmado').length;
-  const personIds = new Set(personasLoc.map((p) => p.id));
-  const seguimientosPendientesCount = seguimientos.filter(
-    (s) =>
-      (s.estado === 'pendiente' || s.estado === 'en_curso') &&
-      (s.localidad_id === loc.id || (s.persona_id !== null && personIds.has(s.persona_id)))
-  ).length;
 
   const sectoresMap = new Map();
   for (const p of personasLoc) {
@@ -291,7 +254,6 @@ function computeLocalidadDetails(loc, personas, seguimientos) {
     ...loc,
     personas_count: personasLoc.length,
     confirmados_count: confirmadosCount,
-    seguimientos_pendientes_count: seguimientosPendientesCount,
     sectores,
   };
 }
@@ -368,7 +330,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
   const [rawPath, rawQuery = ''] = String(pathWithQuery).split('?');
   const path = rawPath.replace(/\/+$/, '') || '/';
   const params = new URLSearchParams(rawQuery);
-  const { categorias, localidades, personas, seguimientos, meta } = dataset;
+  const { categorias, localidades, personas, meta } = dataset;
 
   if (path === '/api/configuracion') {
     return { categorias, localidades, meta };
@@ -385,6 +347,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
     let necesitanInterpretacion = 0;
     let usanLsch = 0;
     let prefierenEscrita = 0;
+    let conUbicacion = 0;
 
     for (const p of personas) {
       countsByEstado.set(p.estado, (countsByEstado.get(p.estado) || 0) + 1);
@@ -398,11 +361,8 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
       if (p.necesita_interpretacion === 1) necesitanInterpretacion += 1;
       if (p.usa_lsch === 1) usanLsch += 1;
       if (p.prefiere_escrita === 1) prefierenEscrita += 1;
+      if (p.latitud !== null && p.longitud !== null) conUbicacion += 1;
     }
-
-    const seguimientosPendientes = seguimientos.filter(
-      (s) => s.estado === 'pendiente' || s.estado === 'en_curso'
-    );
 
     const distribucion_localidades = localidades
       .filter((l) => l.activa === 1 || (countsByLoc.get(l.id) || 0) > 0)
@@ -430,10 +390,6 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
       .sort((a, b) => compareValues(a.fecha_actualizacion, b.fecha_actualizacion, 'desc') || b.id - a.id)
       .slice(0, 5);
 
-    const proximos_seguimientos = [...seguimientosPendientes]
-      .sort((a, b) => compareValues(a.fecha, b.fecha, 'asc') || a.id - b.id)
-      .slice(0, 8);
-
     return {
       resumen: {
         total_personas: personas.length,
@@ -443,7 +399,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
         pendientes_actualizacion: pendientesActualizacion,
         por_confirmar: porConfirmar,
         requieren_visita: requierenVisita,
-        seguimientos_pendientes: seguimientosPendientes.length,
+        con_ubicacion: conUbicacion,
         necesitan_interpretacion: necesitanInterpretacion,
         usan_lsch: usanLsch,
         prefieren_escrita: prefierenEscrita,
@@ -452,7 +408,6 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
       distribucion_estados,
       ultimos_agregados,
       ultimas_modificaciones,
-      proximos_seguimientos,
       meta,
     };
   }
@@ -478,7 +433,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
       if (usaLsch === 'null' && p.usa_lsch !== null) return false;
       if (q) {
         const haystack = normalizeText(
-          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion} ${p.proxima_accion} ${p.observaciones}`
+          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion} ${p.proxima_accion} ${p.observaciones} ${p.archivo_fuente}`
         );
         if (!haystack.includes(q)) return false;
       }
@@ -493,8 +448,13 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
           return compareValues(a.apellido, b.apellido, order) || compareValues(a.nombre, b.nombre, order);
         case 'localidad':
           return compareValues(a.localidad_nombre, b.localidad_nombre, order) || compareValues(a.nombre, b.nombre, 'asc');
+        case 'estado':
+          return compareValues(a.estado, b.estado, order) || compareValues(a.nombre, b.nombre, 'asc');
         case 'fecha_creacion':
           return compareValues(a.fecha_creacion, b.fecha_creacion, order) || (b.id - a.id);
+        case 'fecha_dato':
+          return compareValues(a.fecha_dato, b.fecha_dato, order) || (b.id - a.id);
+        case 'fecha_ultima_visita':
         case 'ultima_visita':
           return compareValues(a.fecha_ultima_visita, b.fecha_ultima_visita, order) || (b.id - a.id);
         case 'fecha_actualizacion':
@@ -520,17 +480,14 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
     if (!persona) {
       throw new Error('No se encontró la persona solicitada.');
     }
-    const personSeguimientos = seguimientos
-      .filter((s) => s.persona_id === id)
-      .sort((a, b) => compareValues(a.fecha, b.fecha, 'desc') || b.id - a.id);
-    return { persona, seguimientos: personSeguimientos };
+    return { persona };
   }
 
   if (path === '/api/localidades') {
     const includeInactive = params.get('incluir_inactivas') === '1' || params.get('incluir_inactivas') === 'true';
     const items = localidades
       .filter((l) => includeInactive || l.activa === 1)
-      .map((l) => computeLocalidadDetails(l, personas, seguimientos))
+      .map((l) => computeLocalidadDetails(l, personas))
       .sort((a, b) => b.activa - a.activa || a.nombre.localeCompare(b.nombre, 'es'));
     return { items };
   }
@@ -546,39 +503,9 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
       .filter((p) => p.localidad_id === id)
       .sort((a, b) => compareValues(a.nombre, b.nombre, 'asc') || compareValues(a.apellido, b.apellido, 'asc'));
     return {
-      localidad: computeLocalidadDetails(loc, personas, seguimientos),
+      localidad: computeLocalidadDetails(loc, personas),
       personas: locPersonas,
     };
-  }
-
-  if (path === '/api/seguimientos') {
-    const q = normalizeText(params.get('q'));
-    const tipo = params.get('tipo') || '';
-    const estado = params.get('estado') || '';
-    const locIdRaw = params.get('localidad_id');
-    const locId = locIdRaw ? Number(locIdRaw) : null;
-
-    const filtered = seguimientos
-      .filter((s) => {
-        if (tipo && s.tipo !== tipo) return false;
-        if (estado && s.estado !== estado) return false;
-        if (locId !== null && s.localidad_id !== locId) return false;
-        if (q) {
-          const haystack = normalizeText(
-            `${s.persona_codigo} ${s.persona_nombre} ${s.persona_apellido} ${s.localidad_nombre} ${s.descripcion} ${s.tipo}`
-          );
-          if (!haystack.includes(q)) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        const pendingRank = (val) => (val === 'pendiente' ? 0 : val === 'en_curso' ? 1 : 2);
-        const rankDiff = pendingRank(a.estado) - pendingRank(b.estado);
-        if (rankDiff !== 0) return rankDiff;
-        return compareValues(a.fecha, b.fecha, 'desc') || b.id - a.id;
-      });
-
-    return { items: filtered };
   }
 
   if (path === '/api/estadisticas') {
@@ -615,8 +542,6 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
         medios: countBy(personas, (p) => p.medio_comunicacion),
         niveles_lsch: countBy(personas, (p) => p.nivel_lsch),
       },
-      seguimientos_tipo: countBy(seguimientos, (s) => s.tipo),
-      seguimientos_estado: countBy(seguimientos, (s) => s.estado),
       por_localidad,
     };
   }
@@ -633,7 +558,6 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
               exportado_en: new Date().toISOString(),
               localidades,
               personas,
-              seguimientos,
             },
             null,
             2

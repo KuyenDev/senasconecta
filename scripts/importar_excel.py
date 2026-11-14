@@ -48,20 +48,6 @@ SEED_CATEGORIAS = {
         {'clave': 'nativo', 'etiqueta': 'Fluido / Nativo', 'orden': 4, 'activa': 1},
         {'clave': 'no_aplica', 'etiqueta': 'No utiliza LSCh', 'orden': 5, 'activa': 1},
     ],
-    'tipo_seguimiento': [
-        {'clave': 'visita_realizada', 'etiqueta': 'Visita realizada', 'orden': 1, 'activa': 1},
-        {'clave': 'visita_pendiente', 'etiqueta': 'Visita pendiente', 'orden': 2, 'activa': 1},
-        {'clave': 'confirmar_info', 'etiqueta': 'Información por confirmar', 'orden': 3, 'activa': 1},
-        {'clave': 'info_desactualizada', 'etiqueta': 'Información desactualizada', 'orden': 4, 'activa': 1},
-        {'clave': 'necesidad_interpretacion', 'etiqueta': 'Necesidad de interpretación', 'orden': 5, 'activa': 1},
-        {'clave': 'proxima_accion', 'etiqueta': 'Próxima acción', 'orden': 6, 'activa': 1},
-    ],
-    'estado_seguimiento': [
-        {'clave': 'pendiente', 'etiqueta': 'Pendiente', 'orden': 1, 'activa': 1},
-        {'clave': 'en_curso', 'etiqueta': 'En curso', 'orden': 2, 'activa': 1},
-        {'clave': 'completado', 'etiqueta': 'Completado', 'orden': 3, 'activa': 1},
-        {'clave': 'cancelado', 'etiqueta': 'Cancelado', 'orden': 4, 'activa': 1},
-    ],
 }
 
 SEED_LOCALIDADES = [
@@ -130,16 +116,6 @@ LOCALIDAD_TEMPLATE_HEADERS = [
     'Latitud',
     'Longitud',
     'Activa',
-]
-
-SEGUIMIENTO_TEMPLATE_HEADERS = [
-    'Codigo persona',
-    'Nombre persona',
-    'Localidad',
-    'Fecha',
-    'Tipo',
-    'Estado',
-    'Descripcion',
 ]
 
 SUPPORTED_DATA_EXTS = {'.xlsx', '.ods', '.csv', '.tsv', '.json', '.docx', '.odt', '.txt', '.md', '.kml', '.kmz'}
@@ -626,7 +602,7 @@ def _dicts_to_table_rows(items: list[dict]) -> list[list[str]]:
 
 
 def read_json_sheets(path: pathlib.Path) -> list[tuple[str, list[list[str]]]]:
-    """Lee un archivo .json con lista de personas o estructura {localidades, personas, seguimientos}."""
+    """Lee un archivo .json con lista de personas o estructura {localidades, personas}."""
     raw = json.loads(_decode_text_bytes(path.read_bytes()))
     batches: list[tuple[str, list[list[str]]]] = []
     if isinstance(raw, list):
@@ -638,7 +614,6 @@ def read_json_sheets(path: pathlib.Path) -> list[tuple[str, list[list[str]]]]:
         for section, sheet_name in (
             ('localidades', 'Localidades'),
             ('personas', 'Personas'),
-            ('seguimientos', 'Seguimientos'),
         ):
             items = raw.get(section)
             if isinstance(items, list) and items:
@@ -1281,30 +1256,6 @@ NIVEL_LSCH_MAP = {
     'ninguno': 'no_aplica',
 }
 
-TIPO_SEG_MAP = {
-    'visita_realizada': 'visita_realizada',
-    'visita_pendiente': 'visita_pendiente',
-    'confirmar_info': 'confirmar_info',
-    'informacion_por_confirmar': 'confirmar_info',
-    'info_desactualizada': 'info_desactualizada',
-    'informacion_desactualizada': 'info_desactualizada',
-    'necesidad_interpretacion': 'necesidad_interpretacion',
-    'necesidad_de_interpretacion': 'necesidad_interpretacion',
-    'proxima_accion': 'proxima_accion',
-}
-
-ESTADO_SEG_MAP = {
-    'pendiente': 'pendiente',
-    'en_curso': 'en_curso',
-    'en_proceso': 'en_curso',
-    'completado': 'completado',
-    'completada': 'completado',
-    'realizado': 'completado',
-    'realizada': 'completado',
-    'cancelado': 'cancelado',
-    'cancelada': 'cancelado',
-}
-
 
 def rows_to_dicts(rows: list[list[str]]) -> tuple[set[str], list[dict[str, str]]]:
     if len(rows) < 1:
@@ -1327,7 +1278,7 @@ def detect_sheet_kind(sheet_name: str, headers: set[str]) -> str:
     if 'localidad' in s_norm and 'persona' not in s_norm and 'nombre_persona' not in headers:
         return 'localidades'
     if 'seguimiento' in s_norm or ('tipo' in headers and 'descripcion' in headers and 'nombre' not in headers):
-        return 'seguimientos'
+        return 'unknown'
     if 'nombre' in headers or 'nombres' in headers or 'persona' in headers or 'personas' in s_norm:
         person_only_cols = {
             'apellido',
@@ -1375,7 +1326,6 @@ def create_excel_template(excel_dir: pathlib.Path = EXCEL_DIR) -> pathlib.Path:
         [
             ('Personas', [PERSON_TEMPLATE_HEADERS]),
             ('Localidades', [LOCALIDAD_TEMPLATE_HEADERS]),
-            ('Seguimientos', [SEGUIMIENTO_TEMPLATE_HEADERS]),
         ],
     )
     return target
@@ -1396,7 +1346,6 @@ def sync_excel_to_json(
         else load_json_list(data_dir / 'localidades.json', SEED_LOCALIDADES)
     )
     personas = [] if replace else load_json_list(data_dir / 'personas.json', [])
-    seguimientos = [] if replace else load_json_list(data_dir / 'seguimientos.json', [])
 
     loc_by_norm = {norm_key(l['nombre']): l for l in localidades if l.get('nombre')}
     next_loc_id = max((int(l.get('id', 0)) for l in localidades), default=0) + 1
@@ -1413,18 +1362,6 @@ def sync_excel_to_json(
         if m:
             max_code_num = max(max_code_num, int(m.group(1)))
 
-    seg_keys = {
-        (
-            s.get('persona_id'),
-            s.get('localidad_id'),
-            str(s.get('fecha') or ''),
-            str(s.get('tipo') or ''),
-            norm_key(s.get('descripcion')),
-        )
-        for s in seguimientos
-    }
-    next_seg_id = max((int(s.get('id', 0)) for s in seguimientos), default=0) + 1
-
     stats = {
         'archivos': [],
         'fuentes': [],
@@ -1434,7 +1371,6 @@ def sync_excel_to_json(
         'personas_agregadas': 0,
         'personas_actualizadas': 0,
         'personas_protegidas_mas_reciente': 0,
-        'seguimientos_agregados': 0,
     }
 
     def ensure_localidad(nombre_raw: str, file_date: str | None = None, rel_source: str = '') -> dict | None:
@@ -1765,54 +1701,6 @@ def sync_excel_to_json(
                     seen_in_file_ids.add(int(person['id']))
                     stats['personas_agregadas'] += 1
 
-        # 3. Seguimientos del archivo actual
-        persona_by_fullname = {
-            norm_key(f"{p.get('nombre', '')} {p.get('apellido', '')}"): p for p in personas
-        }
-        for kind, _sname, _headers, dicts in deferred_batches:
-            if kind != 'seguimientos':
-                continue
-            for row in dicts:
-                desc = pick(row, 'descripcion', 'observaciones', 'notas')
-                if not desc:
-                    continue
-                effective_date = parse_date(pick(row, 'fecha_entrega', 'fecha_archivo', 'fecha_dato')) or file_date
-                raw_code = pick(row, 'codigo_persona', 'codigo', 'persona_codigo').upper()
-                raw_pname = pick(row, 'nombre_persona', 'persona', 'nombre')
-                p_obj = persona_by_code.get(raw_code) if raw_code else None
-                if not p_obj and raw_pname:
-                    p_obj = persona_by_fullname.get(norm_key(raw_pname))
-
-                loc_name = pick(row, 'localidad', 'comuna')
-                loc_obj = ensure_localidad(loc_name, effective_date, rel_name) if loc_name else None
-                loc_id = loc_obj['id'] if loc_obj else (p_obj['localidad_id'] if p_obj else None)
-
-                tipo = map_category(pick(row, 'tipo', 'tipo_seguimiento'), TIPO_SEG_MAP, 'visita_pendiente')
-                estado = map_category(pick(row, 'estado', 'estado_seguimiento'), ESTADO_SEG_MAP, 'pendiente')
-                fecha = parse_date(pick(row, 'fecha')) or effective_date
-
-                dedup_key = (p_obj['id'] if p_obj else None, loc_id, fecha, tipo, norm_key(desc))
-                if dedup_key in seg_keys:
-                    continue
-                seg_keys.add(dedup_key)
-                seguimientos.append(
-                    {
-                        'id': next_seg_id,
-                        'persona_id': p_obj['id'] if p_obj else None,
-                        'localidad_id': loc_id,
-                        'tipo': tipo,
-                        'estado': estado,
-                        'fecha': fecha,
-                        'descripcion': desc,
-                        'fecha_dato': effective_date,
-                        'archivo_fuente': rel_name,
-                        'fecha_creacion': now,
-                        'fecha_actualizacion': now,
-                    }
-                )
-                next_seg_id += 1
-                stats['seguimientos_agregados'] += 1
-
     fuentes_desc = sorted(stats['fuentes'], key=lambda f: (f['fecha_entrega'], f['archivo']), reverse=True)
     meta = {
         'app': 'senasconecta',
@@ -1824,14 +1712,12 @@ def sync_excel_to_json(
         'totales': {
             'localidades': len(localidades),
             'personas': len(personas),
-            'seguimientos': len(seguimientos),
         },
     }
 
     (data_dir / 'categorias.json').write_text(json.dumps(SEED_CATEGORIAS, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (data_dir / 'localidades.json').write_text(json.dumps(localidades, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (data_dir / 'personas.json').write_text(json.dumps(personas, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    (data_dir / 'seguimientos.json').write_text(json.dumps(seguimientos, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (data_dir / 'meta.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
     return stats
@@ -1843,7 +1729,7 @@ def main() -> int:
     )
     parser.add_argument('--datos-dir', '--excel-dir', dest='excel_dir', type=pathlib.Path, default=EXCEL_DIR)
     parser.add_argument('--data-dir', type=pathlib.Path, default=DATA_DIR)
-    parser.add_argument('--replace', action='store_true', help='Reemplaza personas y seguimientos con el contenido actual de datos/')
+    parser.add_argument('--replace', action='store_true', help='Reemplaza personas con el contenido actual de datos/')
     parser.add_argument('--crear-plantilla', action='store_true', help='Crea/regenera plantilla_senasconecta.xlsx en datos/')
     args = parser.parse_args()
 

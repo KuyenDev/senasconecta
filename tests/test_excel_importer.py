@@ -24,25 +24,25 @@ class ExcelImporterTests(unittest.TestCase):
 
             sheets = importar_excel.read_xlsx_sheets(tpl_path)
             sheet_names = [name for name, _ in sheets]
-            self.assertEqual(sheet_names, ['Personas', 'Localidades', 'Seguimientos'])
+            self.assertEqual(sheet_names, ['Personas', 'Localidades'])
 
             res = importar_excel.sync_excel_to_json(excel_dir, data_dir)
             self.assertEqual(res['personas_agregadas'], 0)
-            self.assertEqual(res['seguimientos_agregados'], 0)
+            self.assertFalse((data_dir / 'seguimientos.json').exists())
 
             localidades = json.loads((data_dir / 'localidades.json').read_text(encoding='utf-8'))
             personas = json.loads((data_dir / 'personas.json').read_text(encoding='utf-8'))
-            seguimientos = json.loads((data_dir / 'seguimientos.json').read_text(encoding='utf-8'))
             categorias = json.loads((data_dir / 'categorias.json').read_text(encoding='utf-8'))
             meta = json.loads((data_dir / 'meta.json').read_text(encoding='utf-8'))
 
             self.assertEqual(len(localidades), 3)
             self.assertEqual([l['nombre'] for l in localidades], ['Osorno', 'Río Negro', 'San Pablo'])
             self.assertEqual(personas, [])
-            self.assertEqual(seguimientos, [])
             self.assertIn('estado_registro', categorias)
+            self.assertNotIn('tipo_seguimiento', categorias)
             self.assertEqual(meta['grupo'], 'Grupo Señas Osorno')
             self.assertEqual(meta['totales']['personas'], 0)
+            self.assertNotIn('seguimientos', meta['totales'])
 
     def test_02_xlsx_multisheet_import_and_normalizations(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -110,25 +110,8 @@ class ExcelImporterTests(unittest.TestCase):
                     (
                         'Seguimientos',
                         [
-                            importar_excel.SEGUIMIENTO_TEMPLATE_HEADERS,
-                            [
-                                '',
-                                'Sofía Cárdenas',
-                                '',
-                                '20/02/2026',
-                                'Necesidad de interpretación',
-                                'Pendiente',
-                                'Coordinar intérprete para actividad',
-                            ],
-                            [
-                                'SC-0099',
-                                '',
-                                'Entre Lagos',
-                                '2026-03-05',
-                                'Visita pendiente',
-                                'En curso',
-                                'Verificar dirección en Entre Lagos',
-                            ],
+                            ['Codigo persona', 'Nombre persona', 'Localidad', 'Fecha', 'Tipo', 'Estado', 'Descripcion'],
+                            ['', 'Sofía Cárdenas', '', '20/02/2026', 'Necesidad de interpretación', 'Pendiente', 'Coordinar intérprete'],
                         ],
                     ),
                 ],
@@ -139,11 +122,9 @@ class ExcelImporterTests(unittest.TestCase):
             # Frutillar (desde hoja Localidades) + Entre Lagos (creada automáticamente desde Personas)
             self.assertEqual(stats['localidades_agregadas'], 2)
             self.assertEqual(stats['personas_agregadas'], 2)
-            self.assertEqual(stats['seguimientos_agregados'], 2)
 
             localidades = json.loads((data_dir / 'localidades.json').read_text(encoding='utf-8'))
             personas = json.loads((data_dir / 'personas.json').read_text(encoding='utf-8'))
-            seguimientos = json.loads((data_dir / 'seguimientos.json').read_text(encoding='utf-8'))
 
             self.assertEqual(len(localidades), 5)
             frutillar = next(l for l in localidades if l['nombre'] == 'Frutillar')
@@ -166,12 +147,6 @@ class ExcelImporterTests(unittest.TestCase):
             self.assertEqual(mateo['nivel_lsch'], 'no_aplica')
             self.assertIsNone(mateo['necesita_interpretacion'])
             self.assertEqual(mateo['estado'], 'pendiente_actualizacion')
-
-            self.assertEqual(seguimientos[0]['persona_id'], sofia['id'])
-            self.assertEqual(seguimientos[0]['fecha'], '2026-02-20')
-            self.assertEqual(seguimientos[0]['tipo'], 'necesidad_interpretacion')
-            self.assertEqual(seguimientos[1]['persona_id'], mateo['id'])
-            self.assertEqual(seguimientos[1]['estado'], 'en_curso')
 
     def test_03_csv_semicolon_idempotent_upsert_and_replace(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -138,21 +138,6 @@ class FrontendStaticE2ETests(unittest.TestCase):
                             ],
                         ],
                     ),
-                    (
-                        'Seguimientos',
-                        [
-                            importar_excel.SEGUIMIENTO_TEMPLATE_HEADERS,
-                            [
-                                '',
-                                'Sofía Cárdenas',
-                                'Osorno',
-                                '2026-03-01',
-                                'Necesidad de interpretación',
-                                'Pendiente',
-                                'Coordinar intérprete LSCh',
-                            ],
-                        ],
-                    ),
                 ],
             )
             importar_excel.sync_excel_to_json(excel_dir, subpath_site / 'data', replace=True)

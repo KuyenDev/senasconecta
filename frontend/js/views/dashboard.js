@@ -91,9 +91,9 @@ export async function renderDashboardView(container, { navigateTo }) {
     el(
       'article',
       { className: 'stat-card accent-gold' },
-      el('div', { className: 'stat-label', text: 'Seguimientos pendientes' }),
-      el('div', { className: 'stat-value', text: String(r.seguimientos_pendientes || 0) }),
-      el('div', { className: 'stat-detail', text: `${r.requieren_visita || 0} fichas marcan visita pendiente` })
+      el('div', { className: 'stat-label', text: 'Con ubicación en mapa' }),
+      el('div', { className: 'stat-value', text: String(r.con_ubicacion || 0) }),
+      el('div', { className: 'stat-detail', text: `de ${r.total_personas || 0} registradas con GPS` })
     )
   );
 
@@ -165,7 +165,7 @@ export async function renderDashboardView(container, { navigateTo }) {
           'div',
           {},
           el('h2', { className: 'card-title', text: 'Estado de los registros' }),
-          el('p', { className: 'card-subtitle', text: 'Seguimiento del estado general de las fichas registradas' })
+          el('p', { className: 'card-subtitle', text: 'Distribución actual del estado de las fichas acumuladas' })
         )
       ),
       el(
@@ -255,62 +255,38 @@ export async function renderDashboardView(container, { navigateTo }) {
     el(
       'div',
       { className: 'card-body' },
-      data.ultimas_modificaciones?.length || data.ultimos_seguimientos_modificados?.length
+      data.ultimas_modificaciones?.length
         ? el(
             'ul',
             { className: 'activity-list' },
-            [
-              ...(data.ultimas_modificaciones || []).slice(0, 4).map((p) =>
+            data.ultimas_modificaciones.slice(0, 5).map((p) =>
+              el(
+                'li',
+                { className: 'activity-item' },
                 el(
-                  'li',
-                  { className: 'activity-item' },
+                  'div',
+                  {},
                   el(
-                    'div',
-                    {},
-                    el(
-                      'button',
-                      {
-                        type: 'button',
-                        className: 'activity-title',
-                        style: { background: 'none', border: 0, padding: 0, cursor: 'pointer', textAlign: 'left' },
-                        onClick: () => openPersonDetailModal(p.id, () => renderDashboardView(container, { navigateTo })),
-                      },
-                      `Ficha: ${fullName(p)}`
-                    ),
-                    el('div', {
-                      className: 'activity-meta',
-                      text: `${p.localidad_nombre || 'Sin localidad'} · Actualizado ${formatDateTime(p.fecha_actualizacion)}`,
-                    })
-                  ),
-                  createBadge(
-                    getCategoryLabel(state.categorias, 'estado_registro', p.estado, p.estado),
-                    getStatusBadgeClass(p.estado)
-                  )
-                )
-              ),
-              ...(data.ultimos_seguimientos_modificados || []).slice(0, 3).map((s) =>
-                el(
-                  'li',
-                  { className: 'activity-item' },
-                  el(
-                    'div',
-                    {},
-                    el('div', {
+                    'button',
+                    {
+                      type: 'button',
                       className: 'activity-title',
-                      text: `Seguimiento: ${getCategoryLabel(state.categorias, 'tipo_seguimiento', s.tipo, s.tipo)}`,
-                    }),
-                    el('div', {
-                      className: 'activity-meta',
-                      text: `${s.persona_nombre ? fullName({ nombre: s.persona_nombre, apellido: s.persona_apellido }) : s.localidad_nombre || 'General'} · ${formatDate(s.fecha)}`,
-                    })
+                      style: { background: 'none', border: 0, padding: 0, cursor: 'pointer', textAlign: 'left' },
+                      onClick: () => openPersonDetailModal(p.id, () => renderDashboardView(container, { navigateTo })),
+                    },
+                    `${fullName(p)} (${p.codigo_interno})`
                   ),
-                  createBadge(
-                    getCategoryLabel(state.categorias, 'estado_seguimiento', s.estado, s.estado),
-                    getStatusBadgeClass(s.estado)
-                  )
+                  el('div', {
+                    className: 'activity-meta',
+                    text: `${p.localidad_nombre || 'Sin localidad'}${p.fecha_dato ? ` · Dato ${formatDate(p.fecha_dato)}` : ''} · Act. ${formatDateTime(p.fecha_actualizacion)}`,
+                  })
+                ),
+                createBadge(
+                  getCategoryLabel(state.categorias, 'estado_registro', p.estado, p.estado),
+                  getStatusBadgeClass(p.estado)
                 )
-              ),
-            ]
+              )
+            )
           )
         : el('p', { className: 'field-hint', text: 'Sin modificaciones recientes.' })
     )

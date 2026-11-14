@@ -173,7 +173,7 @@ export async function openPersonDetailModal(personId) {
   });
 
   try {
-    const { persona, seguimientos } = await apiFetch(`/api/personas/${personId}`);
+    const { persona } = await apiFetch(`/api/personas/${personId}`);
     const mapsUrl = buildGoogleMapsUrl(persona);
     const coordsText = hasCoords(persona) ? `${persona.latitud}, ${persona.longitud}` : '—';
 
@@ -235,12 +235,14 @@ export async function openPersonDetailModal(personId) {
       el(
         'div',
         { className: 'form-section' },
-        el('h3', { className: 'form-section-title', text: 'Seguimiento y actualización' }),
+        el('h3', { className: 'form-section-title', text: 'Notas, fechas y origen del dato' }),
         el(
           'div',
           { className: 'detail-grid' },
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Última visita' }), el('span', { className: 'detail-val', text: formatDate(persona.fecha_ultima_visita) })),
-          el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Próxima acción' }), el('span', { className: 'detail-val', text: persona.proxima_accion || '—' })),
+          persona.proxima_accion
+            ? el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Nota / Próxima acción' }), el('span', { className: 'detail-val', text: persona.proxima_accion }))
+            : null,
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Fecha del dato' }), el('span', { className: 'detail-val', text: persona.fecha_dato ? formatDate(persona.fecha_dato) : '—' })),
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Archivo fuente' }), el('span', { className: 'detail-val', text: persona.archivo_fuente || '—' })),
           el('div', { className: 'detail-item' }, el('span', { className: 'detail-label', text: 'Última actualización' }), el('span', { className: 'detail-val', text: formatDateTime(persona.fecha_actualizacion) })),
@@ -249,34 +251,6 @@ export async function openPersonDetailModal(personId) {
         persona.observaciones
           ? el('p', { style: { marginTop: '10px', fontSize: '0.9rem' }, text: `Observaciones: ${persona.observaciones}` })
           : null
-      ),
-      el(
-        'div',
-        { className: 'form-section' },
-        el(
-          'div',
-          { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' } },
-          el('h3', { className: 'form-section-title', style: { marginBottom: 0, borderBottom: 0, paddingBottom: 0 }, text: `Historial de seguimientos (${seguimientos.length})` })
-        ),
-        seguimientos.length
-          ? el(
-              'ul',
-              { className: 'activity-list' },
-              seguimientos.map((s) =>
-                el(
-                  'li',
-                  { className: 'activity-item' },
-                  el(
-                    'div',
-                    {},
-                    el('div', { className: 'activity-title', text: `${getCategoryLabel(state.categorias, 'tipo_seguimiento', s.tipo, s.tipo)} — ${formatDate(s.fecha)}` }),
-                    el('div', { className: 'activity-meta', text: s.descripcion })
-                  ),
-                  createBadge(getCategoryLabel(state.categorias, 'estado_seguimiento', s.estado, s.estado), getStatusBadgeClass(s.estado))
-                )
-              )
-            )
-          : el('p', { className: 'field-hint', text: 'Aún no hay seguimientos registrados para esta persona.' })
       )
     );
 

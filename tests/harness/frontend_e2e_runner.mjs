@@ -254,7 +254,7 @@ for (const id of elementIds) {
   idMap.set(id, el);
 }
 
-for (const route of ['dashboard', 'personas', 'territorio', 'seguimientos', 'mapa', 'estadisticas', 'respaldos']) {
+for (const route of ['dashboard', 'personas', 'territorio', 'mapa', 'estadisticas', 'respaldos']) {
   const btn = new MockElement('button');
   btn.className = 'nav-item';
   btn.setAttribute('data-route', route);
@@ -402,10 +402,12 @@ async function runScenario() {
   if (testScenario === 'excel_populated') {
     const dashText = mainEl.textContent;
     assert(dashText.includes('Utilizan LSCh'), 'Dashboard renders LSCh summary card');
+    assert(dashText.includes('Con ubicación en mapa'), 'Dashboard shows Con ubicación en mapa card');
+    assert(!dashText.includes('Seguimientos pendientes'), 'Dashboard removes Seguimientos pendientes card');
     assert(dashText.includes('Sofía Cárdenas'), 'Dashboard recent entries show Sofía Cárdenas');
     assert(idMap.get('data-updated-hint').textContent.includes('2 persona(s)'), 'Sidebar shows 2 personas loaded');
 
-    // Navegar a Personas y probar búsqueda sin tildes + ficha modal de solo lectura
+    // Navegar a Personas y probar búsqueda sin tildes, ordenamiento y ficha modal de solo lectura
     await nav('personas');
     const searchInput = mainEl.querySelector('#filter-q');
     assert(searchInput, 'Search input present');
@@ -419,6 +421,17 @@ async function runScenario() {
     searchInput.dispatchEvent({ type: 'input' });
     await flush(320);
     assert(mainEl.textContent.includes('Sofía Cárdenas'), 'Sector search finds Sofía Cárdenas');
+    assert(mainEl.textContent.includes('Av. República 410'), 'Personas table shows person address for easy review');
+    const rowMapsLink = Array.from(mainEl.querySelectorAll('a')).find((a) => a.textContent === 'Maps');
+    assert(rowMapsLink && (rowMapsLink.getAttribute('href') || '').startsWith('https://www.google.com/maps'), 'Personas table includes quick Maps action');
+
+    // Probar ordenamiento por fecha_dato y estado
+    const sortSelect = mainEl.querySelector('#filter-sort');
+    assert(sortSelect && sortSelect.options.some((o) => o.value === 'fecha_dato'), 'Personas includes fecha_dato sort option');
+    sortSelect.value = 'estado';
+    sortSelect.dispatchEvent({ type: 'change' });
+    await flush(80);
+    assert(mainEl.textContent.includes('Sofía Cárdenas'), 'Personas sort by estado renders cleanly');
 
     const viewBtn = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Ver ficha');
     assert(viewBtn, 'Ver ficha button exists');
@@ -430,7 +443,8 @@ async function runScenario() {
     assert(modalText.includes('Sofía Cárdenas'), 'Modal shows person name');
     assert(modalText.includes('Av. República 410'), 'Modal shows person direccion');
     assert(modalText.includes('Lengua de Señas Chilena (LSCh)'), 'Modal shows communication method');
-    assert(modalText.includes('Coordinar intérprete'), 'Modal shows linked seguimiento');
+    assert(modalText.includes('Notas, fechas y origen del dato'), 'Modal shows Notas, fechas y origen del dato section');
+    assert(!modalText.includes('Historial de seguimientos'), 'Modal removes Historial de seguimientos section');
     const modalMapsLink = Array.from(modalRoot.querySelectorAll('a')).find((a) => a.textContent === 'Abrir en Google Maps');
     assert(modalMapsLink && (modalMapsLink.getAttribute('href') || '').startsWith('https://www.google.com/maps'), 'Modal shows safe Google Maps link');
     assert(!modalText.includes('Editar') && !modalText.includes('Eliminar'), 'Modal has zero mutation buttons');
@@ -448,10 +462,6 @@ async function runScenario() {
     modalRoot.querySelectorAll('button').find((b) => b.textContent === 'Ver en Personas').click();
     await flush(110);
     assert(idMap.get('page-title').textContent.includes('Registro de personas'), 'Ver en Personas navigates back to Personas');
-
-    // Seguimientos
-    await nav('seguimientos');
-    assert(mainEl.textContent.includes('Coordinar intérprete'), 'Seguimientos lists imported seguimiento');
 
     // Mapa territorial
     await nav('mapa');
@@ -546,6 +556,8 @@ async function runScenario() {
   if (testScenario === 'live_published') {
     const dashText = mainEl.textContent;
     assert(dashText.includes('Personas registradas'), 'Dashboard shows Personas registradas card');
+    assert(dashText.includes('Con ubicación en mapa'), 'Dashboard shows Con ubicación en mapa card');
+    assert(!dashText.includes('Seguimientos pendientes'), 'Dashboard no longer shows Seguimientos pendientes');
     assert(dashText.includes('72'), 'Dashboard shows 72 imported personas');
     assert(idMap.get('data-updated-hint').textContent.includes('72 persona(s)'), 'Sidebar shows 72 personas loaded');
 
@@ -561,10 +573,12 @@ async function runScenario() {
     searchInput.dispatchEvent({ type: 'input' });
     await flush(320);
     assert(mainEl.textContent.includes('Eduardo Javier'), 'Personas search finds imported person from KML');
+    assert(!mainEl.textContent.includes('Historial de seguimientos'), 'Personas view omits seguimientos');
 
     await nav('mapa');
     const mapText = mainEl.textContent;
     assert(mapText.includes('72 personas con marcador en el mapa'), 'Mapa loads all 72 person markers');
+    assert(!mapText.includes('seg. pendientes'), 'Mapa omits seg. pendientes count');
     assert(!mapText.includes('NaN'), 'No NaN in live Mapa');
 
     print('E2E_LIVE_PUBLISHED_OK');
