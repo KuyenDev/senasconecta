@@ -116,10 +116,10 @@ function normalizeSnapshot(raw) {
   return { categorias, localidades, personas, meta };
 }
 
-async function fetchJson(relativeUrl) {
+async function fetchJson(relativeUrl, forceReload = false) {
   let response;
   try {
-    response = await fetch(relativeUrl, { cache: 'no-store' });
+    response = await fetch(relativeUrl, { cache: forceReload ? 'no-store' : 'default' });
   } catch (err) {
     if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
       throw new Error(
@@ -148,10 +148,10 @@ export async function loadPublishedDataset(forceReload = false) {
 
   loadPromise = (async () => {
     const [categorias, localidades, personas, meta] = await Promise.all([
-      fetchJson('./data/categorias.json'),
-      fetchJson('./data/localidades.json'),
-      fetchJson('./data/personas.json'),
-      fetchJson('./data/meta.json').catch(() => null),
+      fetchJson('./data/categorias.json', forceReload),
+      fetchJson('./data/localidades.json', forceReload),
+      fetchJson('./data/personas.json', forceReload),
+      fetchJson('./data/meta.json', forceReload).catch(() => null),
     ]);
     publishedSnapshot = normalizeSnapshot({
       categorias,

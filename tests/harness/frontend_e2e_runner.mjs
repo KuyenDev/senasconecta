@@ -231,7 +231,11 @@ const elementIds = [
   'btn-open-sidebar',
   'static-sidebar-panel',
   'data-updated-hint',
+  'offline-pill',
   'dataset-pill',
+  'btn-update-app',
+  'btn-install-topbar',
+  'btn-install-app',
   'btn-refresh-view',
   'preview-status-banner',
   'preview-banner-text',
@@ -239,6 +243,7 @@ const elementIds = [
   'page-title',
   'page-subtitle',
   'main-content',
+  'mobile-bottom-nav',
   'modal-root',
   'toast-region',
 ];
@@ -247,7 +252,16 @@ const idMap = new Map();
 for (const id of elementIds) {
   const el = new MockElement(id.startsWith('btn-') ? 'button' : 'div');
   el.setAttribute('id', id);
-  if (id === 'app-shell' || id === 'modal-root' || id === 'preview-status-banner' || id === 'sidebar-backdrop') {
+  if (
+    id === 'app-shell' ||
+    id === 'modal-root' ||
+    id === 'preview-status-banner' ||
+    id === 'sidebar-backdrop' ||
+    id === 'offline-pill' ||
+    id === 'btn-update-app' ||
+    id === 'btn-install-topbar' ||
+    id === 'btn-install-app'
+  ) {
     el.classList.add('hidden');
   }
   body.appendChild(el);
@@ -259,6 +273,13 @@ for (const route of ['dashboard', 'personas', 'territorio', 'mapa', 'estadistica
   btn.className = 'nav-item';
   btn.setAttribute('data-route', route);
   idMap.get('app-sidebar').appendChild(btn);
+}
+
+for (const route of ['dashboard', 'personas', 'mapa', 'territorio', 'respaldos']) {
+  const mBtn = new MockElement('button');
+  mBtn.className = 'mobile-nav-item';
+  mBtn.setAttribute('data-route', route);
+  idMap.get('mobile-bottom-nav').appendChild(mBtn);
 }
 
 globalThis.Node = MockNode;
@@ -319,6 +340,11 @@ globalThis.location = {
 globalThis.addEventListener = (t, fn) => {
   if (!winListeners.has(t)) winListeners.set(t, []);
   winListeners.get(t).push(fn);
+};
+globalThis.dispatchEvent = (ev) => {
+  for (const fn of winListeners.get(ev.type) || []) {
+    fn(ev);
+  }
 };
 
 let lastCreatedBlob = null;
@@ -637,6 +663,33 @@ async function runScenario() {
     assert(mapText.includes('72 personas con marcador en el mapa'), 'Mapa loads all 72 person markers');
     assert(!mapText.includes('seg. pendientes'), 'Mapa omits seg. pendientes count');
     assert(!mapText.includes('NaN'), 'No NaN in live Mapa');
+
+    // Probar barra inferior móvil PWA e instalación beforeinstallprompt
+    const mobileRespaldos = idMap
+      .get('mobile-bottom-nav')
+      .querySelectorAll('.mobile-nav-item')
+      .find((b) => b.dataset.route === 'respaldos');
+    assert(mobileRespaldos, 'Mobile bottom nav includes respaldos tab');
+    mobileRespaldos.click();
+    await flush(90);
+    assert(idMap.get('page-title').textContent.includes('Exportar y datos'), 'Mobile bottom nav navigates to Exportar y datos');
+    assert(mobileRespaldos.classList.contains('active'), 'Mobile bottom nav marks active route');
+
+    let promptCalled = false;
+    globalThis.dispatchEvent({
+      type: 'beforeinstallprompt',
+      preventDefault() {},
+      async prompt() {
+        promptCalled = true;
+      },
+      userChoice: Promise.resolve({ outcome: 'accepted' }),
+    });
+    assert(!idMap.get('btn-install-topbar').classList.contains('hidden'), 'Install topbar button reveals on beforeinstallprompt');
+    assert(!idMap.get('btn-install-app').classList.contains('hidden'), 'Install sidebar button reveals on beforeinstallprompt');
+    idMap.get('btn-install-topbar').click();
+    await flush(30);
+    assert(promptCalled, 'Install button triggers deferred prompt()');
+    assert(idMap.get('btn-install-topbar').classList.contains('hidden'), 'Install buttons hide after prompt acceptance');
 
     print('E2E_LIVE_PUBLISHED_OK');
     return;

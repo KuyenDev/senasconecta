@@ -3,6 +3,7 @@
 import json
 import pathlib
 import re
+import struct
 import subprocess
 import unittest
 
@@ -72,6 +73,7 @@ class FrontendUnitsAndSecurityTests(unittest.TestCase):
         ]
         files_to_scan = (
             list(FRONTEND_DIR.glob('*.html'))
+            + [FRONTEND_DIR / 'sw.js', FRONTEND_DIR / 'manifest.webmanifest']
             + list((FRONTEND_DIR / 'js').rglob('*.js'))
             + list((FRONTEND_DIR / 'css').rglob('*.css'))
         )
@@ -82,6 +84,8 @@ class FrontendUnitsAndSecurityTests(unittest.TestCase):
 
         html_text = (FRONTEND_DIR / 'index.html').read_text(encoding='utf-8')
         self.assertIsNone(re.search(r'\son[a-z]+\s*=', html_text, re.IGNORECASE), 'Inline HTML event handlers forbidden')
+        self.assertIn('href="./manifest.webmanifest"', html_text)
+        self.assertIn('href="./assets/apple-touch-icon.png"', html_text)
         self.assertIn('href="./assets/favicon.svg"', html_text)
         self.assertIn('href="./css/styles.css"', html_text)
         self.assertIn('src="./js/app.js"', html_text)
@@ -92,6 +96,57 @@ class FrontendUnitsAndSecurityTests(unittest.TestCase):
         wf_text = (ROOT_DIR / '.github' / 'workflows' / 'deploy-pages.yml').read_text(encoding='utf-8')
         self.assertIn('path: "frontend"', wf_text)
         self.assertNotIn('SENASCONECTA_API_URL', wf_text)
+
+    def test_pwa_manifest_service_worker_and_icons(self):
+        manifest_path = FRONTEND_DIR / 'manifest.webmanifest'
+        self.assertTrue(manifest_path.exists())
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+
+        self.assertEqual(manifest.get('display'), 'standalone')
+        self.assertEqual(manifest.get('scope'), './')
+        self.assertTrue(str(manifest.get('start_url', '')).startswith('./'))
+        self.assertEqual(manifest.get('theme_color'), '#163024')
+
+        expected_png_dims = {
+            './assets/icon-192.png': (192, 192),
+            './assets/icon-512.png': (512, 512),
+            './assets/icon-maskable-512.png': (512, 512),
+        }
+        seen_purposes = set()
+        for icon in manifest.get('icons', []):
+            src = icon.get('src', '')
+            self.assertTrue(src.startswith('./'), f'Icon src must be relative: {src}')
+            seen_purposes.add(icon.get('purpose', 'any'))
+            icon_file = FRONTEND_DIR / src.removeprefix('./')
+            self.assertTrue(icon_file.exists(), f'Missing icon referenced in manifest: {icon_file}')
+            if src in expected_png_dims:
+                raw = icon_file.read_bytes()
+                self.assertTrue(raw.startswith(b'\x89PNG\r\n\x1a\n'))
+                w, h = struct.unpack('>II', raw[16:24])
+                self.assertEqual((w, h), expected_png_dims[src])
+
+        self.assertIn('any', seen_purposes)
+        self.assertIn('maskable', seen_purposes)
+
+        apple_icon = FRONTEND_DIR / 'assets' / 'apple-touch-icon.png'
+        self.assertTrue(apple_icon.exists())
+        aw, ah = struct.unpack('>II', apple_icon.read_bytes()[16:24])
+        self.assertEqual((aw, ah), (180, 180))
+
+        sw_path = FRONTEND_DIR / 'sw.js'
+        self.assertTrue(sw_path.exists())
+        sw_text = sw_path.read_text(encoding='utf-8')
+        for block_name in ('PRECACHE_SHELL_URLS', 'PRECACHE_DATA_URLS'):
+            match = re.search(rf'const {block_name}\s*=\s*\[(.*?)\];', sw_text, re.DOTALL)
+            self.assertIsNotNone(match, f'Missing {block_name} in sw.js')
+            urls = re.findall(r"'(./[^']*)'", match.group(1))
+            self.assertGreater(len(urls), 0)
+            for rel in urls:
+                if rel == './':
+                    target = FRONTEND_DIR / 'index.html'
+                else:
+                    target = FRONTEND_DIR / rel.removeprefix('./')
+                self.assertTrue(target.exists(), f'SW precache target missing: {rel}')
 
 
 if __name__ == '__main__':

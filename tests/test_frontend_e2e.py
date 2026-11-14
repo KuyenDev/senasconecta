@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.request
 import zipfile
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
@@ -87,6 +88,18 @@ class FrontendStaticE2ETests(unittest.TestCase):
         server, port = serve_directory(FRONTEND_DIR)
         try:
             url = f'http://127.0.0.1:{port}'
+            with urllib.request.urlopen(f'{url}/manifest.webmanifest', timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                manifest_raw = resp.read().decode('utf-8')
+                self.assertIn('"standalone"', manifest_raw)
+            with urllib.request.urlopen(f'{url}/sw.js', timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                sw_raw = resp.read().decode('utf-8')
+                self.assertIn('senasconecta-shell-', sw_raw)
+            with urllib.request.urlopen(f'{url}/assets/icon-192.png', timeout=5) as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertTrue(resp.read().startswith(b'\x89PNG\r\n\x1a\n'))
+
             out = self._run_e2e('live_published', url, f'{url}/index.html#dashboard')
             self.assertIn('E2E_LIVE_PUBLISHED_OK', out)
             with tempfile.TemporaryDirectory() as tmp:
