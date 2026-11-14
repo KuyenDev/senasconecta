@@ -6,7 +6,7 @@
  * - Mantiene rutas relativas compatibles con subcarpetas de GitHub Pages (/senasconecta/).
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const APP_CACHE = `senasconecta-shell-${CACHE_VERSION}`;
 const DATA_CACHE = `senasconecta-data-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `senasconecta-runtime-${CACHE_VERSION}`;

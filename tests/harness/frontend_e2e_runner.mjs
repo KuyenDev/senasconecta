@@ -306,6 +306,19 @@ globalThis.document = {
     const arr = docListeners.get(t);
     if (arr) docListeners.set(t, arr.filter((f) => f !== fn));
   },
+  dispatchEvent: (ev) => {
+    const event = {
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+      ...ev,
+    };
+    for (const fn of docListeners.get(event.type) || []) {
+      fn(event);
+    }
+    return !event.defaultPrevented;
+  },
 };
 
 let currentHref = GLib.getenv('INITIAL_HREF') || `${frontendUrl}/`;
@@ -690,6 +703,20 @@ async function runScenario() {
     await flush(30);
     assert(promptCalled, 'Install button triggers deferred prompt()');
     assert(idMap.get('btn-install-topbar').classList.contains('hidden'), 'Install buttons hide after prompt acceptance');
+
+    // Probar bloqueo de arrastre de imágenes, selección y copiado de texto
+    const textTarget = new MockElement('p');
+    const imgTarget = new MockElement('img');
+    const inputTarget = new MockElement('input');
+    for (const evType of ['dragstart', 'selectstart', 'copy', 'cut', 'contextmenu']) {
+      assert(!document.dispatchEvent({ type: evType, target: textTarget }), `${evType} prevented on text element`);
+    }
+    assert(!document.dispatchEvent({ type: 'dragstart', target: imgTarget }), 'dragstart prevented on image');
+    assert(!document.dispatchEvent({ type: 'keydown', key: 'c', ctrlKey: true, target: textTarget }), 'Ctrl+C prevented on text');
+    assert(!document.dispatchEvent({ type: 'keydown', key: 'a', metaKey: true, target: textTarget }), 'Cmd+A prevented on text');
+    assert(document.dispatchEvent({ type: 'selectstart', target: inputTarget }), 'selectstart allowed inside search input');
+    assert(document.dispatchEvent({ type: 'copy', target: inputTarget }), 'copy allowed inside search input');
+    assert(document.dispatchEvent({ type: 'keydown', key: 'c', ctrlKey: true, target: inputTarget }), 'Ctrl+C allowed inside search input');
 
     print('E2E_LIVE_PUBLISHED_OK');
     return;

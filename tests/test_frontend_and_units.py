@@ -89,8 +89,13 @@ class FrontendUnitsAndSecurityTests(unittest.TestCase):
         self.assertIn('href="./assets/favicon.svg"', html_text)
         self.assertIn('href="./css/styles.css"', html_text)
         self.assertIn('src="./js/app.js"', html_text)
+        self.assertIn('draggable="false"', html_text)
         self.assertNotIn('href="/', html_text)
         self.assertNotIn('src="/', html_text)
+
+        css_text = (FRONTEND_DIR / 'css' / 'styles.css').read_text(encoding='utf-8')
+        self.assertIn('user-select: none;', css_text)
+        self.assertIn('-webkit-user-drag: none;', css_text)
 
         self.assertTrue((FRONTEND_DIR / '.nojekyll').exists())
         wf_text = (ROOT_DIR / '.github' / 'workflows' / 'deploy-pages.yml').read_text(encoding='utf-8')

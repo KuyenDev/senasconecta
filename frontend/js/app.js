@@ -389,6 +389,39 @@ function setupPwaFeatures() {
     .catch(() => {});
 }
 
+function isEditableElement(target) {
+  const node = target?.nodeType === 3 ? target.parentElement : target;
+  if (!node) return false;
+  const tag = String(node.tagName || '').toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || node.isContentEditable === true;
+}
+
+function setupInteractionProtection() {
+  document.addEventListener('dragstart', (ev) => {
+    const node = ev.target?.nodeType === 3 ? ev.target.parentElement : ev.target;
+    const tag = String(node?.tagName || '').toUpperCase();
+    if (tag === 'IMG' || !isEditableElement(node)) {
+      ev.preventDefault?.();
+    }
+  });
+
+  for (const eventName of ['selectstart', 'copy', 'cut', 'contextmenu']) {
+    document.addEventListener(eventName, (ev) => {
+      if (!isEditableElement(ev.target)) {
+        ev.preventDefault?.();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (ev) => {
+    if (!(ev.ctrlKey || ev.metaKey)) return;
+    const key = String(ev.key || '').toLowerCase();
+    if ((key === 'c' || key === 'x' || key === 'a') && !isEditableElement(ev.target)) {
+      ev.preventDefault?.();
+    }
+  });
+}
+
 function bindEvents() {
   for (const btn of document.querySelectorAll('.nav-item[data-route], .mobile-nav-item')) {
     btn.addEventListener('click', () => {
@@ -422,6 +455,7 @@ function bindEvents() {
 
 async function bootstrap() {
   bindEvents();
+  setupInteractionProtection();
   setupConnectivityListeners();
   setupPwaFeatures();
   showAppShell();
