@@ -4,6 +4,7 @@
 
 import { apiFetch } from '../api.js';
 import {
+  downloadExportFile,
   openPersonDetailModal,
   renderEmptyState,
   renderLoading,
@@ -174,7 +175,14 @@ export async function renderPersonasView(container) {
         {},
         el('h2', { className: 'card-title', text: `Personas registradas (${total})` }),
         el('p', { className: 'card-subtitle', text: 'Haz clic en cualquier nombre para consultar su ficha completa, notas y mapa' })
-      )
+      ),
+      el('button', {
+        type: 'button',
+        className: 'btn btn-secondary btn-sm',
+        text: 'Descargar Excel simple',
+        disabled: total === 0,
+        onClick: () => downloadExportFile('xlsx_simple', filters),
+      })
     );
     listCard.appendChild(header);
 

@@ -169,7 +169,7 @@ export async function renderMapaView(container, { navigateTo }) {
       if (selectedEstado && p.estado !== selectedEstado) return false;
       if (q) {
         const haystack = normalizeText(
-          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion}`
+          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion} ${p.observaciones}`
         );
         if (!haystack.includes(q)) return false;
       }
@@ -286,7 +286,11 @@ export async function renderMapaView(container, { navigateTo }) {
         el('div', {
           text: `LSCh: ${triBoolLabel(persona.usa_lsch)}${persona.medio_comunicacion ? ` · ${getCategoryLabel(state.categorias, 'medio_comunicacion', persona.medio_comunicacion)}` : ''}`,
         }),
-        persona.proxima_accion ? el('div', { className: 'activity-meta', text: `Próxima acción: ${persona.proxima_accion}` }) : null,
+        persona.observaciones
+          ? el('div', { className: 'activity-meta', text: `Notas: ${persona.observaciones}` })
+          : persona.proxima_accion
+            ? el('div', { className: 'activity-meta', text: `Próxima acción: ${persona.proxima_accion}` })
+            : null,
         el(
           'div',
           { className: 'map-popup-actions' },
@@ -539,7 +543,7 @@ export async function renderMapaView(container, { navigateTo }) {
     renderMapMarkers();
   }
 
-  btnEnableMap.addEventListener('click', async () => {
+  async function activateMap() {
     if (mapInstance) {
       renderMapMarkers();
       return;
@@ -560,6 +564,7 @@ export async function renderMapaView(container, { navigateTo }) {
 
     try {
       const L = await loadLeafletAssets();
+      if (mapHost.isConnected === false) return;
       mapHost.classList.remove('hidden');
       clearNode(mapHost);
 
@@ -610,7 +615,9 @@ export async function renderMapaView(container, { navigateTo }) {
       mapStatus.classList.remove('hidden');
       showToast('Mapa no disponible; usa el listado con enlaces directos a Google Maps.', 'info');
     }
-  });
+  }
+
+  btnEnableMap.addEventListener('click', activateMap);
 
   selLoc.addEventListener('change', () => {
     selectedLocId = selLoc.value;
@@ -678,4 +685,10 @@ export async function renderMapaView(container, { navigateTo }) {
   container.appendChild(interactiveMapCard);
   container.appendChild(ubicacionesCard);
   container.appendChild(territoryCardSection);
+
+  const isRealBrowser =
+    typeof HTMLElement === 'function' && mapHost instanceof HTMLElement && typeof window.XMLHttpRequest === 'function';
+  if (isRealBrowser && personas.some(hasCoords)) {
+    activateMap();
+  }
 }

@@ -425,6 +425,13 @@ async function runScenario() {
     const rowMapsLink = Array.from(mainEl.querySelectorAll('a')).find((a) => a.textContent === 'Maps');
     assert(rowMapsLink && (rowMapsLink.getAttribute('href') || '').startsWith('https://www.google.com/maps'), 'Personas table includes quick Maps action');
 
+    const btnPersonasXlsxSimple = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Descargar Excel simple');
+    assert(btnPersonasXlsxSimple, 'Personas view includes Descargar Excel simple button');
+    btnPersonasXlsxSimple.click();
+    await flush(80);
+    assert(lastCreatedBlob && lastCreatedBlob.parts?.[0]?.[0] === 0x50 && lastCreatedBlob.parts[0][1] === 0x4b, 'Filtered simplified Excel is valid PK zip binary');
+    print(`XLSX_FILTERED_SIMPLE_B64:${GLib.base64_encode(lastCreatedBlob.parts[0])}`);
+
     // Probar ordenamiento por fecha_dato y estado
     const sortSelect = mainEl.querySelector('#filter-sort');
     assert(sortSelect && sortSelect.options.some((o) => o.value === 'fecha_dato'), 'Personas includes fecha_dato sort option');
@@ -489,9 +496,23 @@ async function runScenario() {
     assert(!statsText.includes('NaN'), 'No NaN in Estadisticas');
     assert(!statsText.includes('Detalle por congregación'), 'No congregación table rendered');
 
-    // Exportar y datos: CSV (con neutralización de fórmula) + JSON + Vista previa local
+    // Exportar y datos: Excel simplificado + Excel completo + CSV (con neutralización de fórmula) + JSON + Vista previa local
     await nav('respaldos');
-    const btnCsv = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Descargar CSV (Excel)');
+    const btnXlsxSimple = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Descargar Excel simplificado (.xlsx)');
+    assert(btnXlsxSimple, 'Simplified Excel download button exists');
+    btnXlsxSimple.click();
+    await flush(80);
+    assert(lastCreatedBlob && lastCreatedBlob.parts?.[0]?.[0] === 0x50 && lastCreatedBlob.parts[0][1] === 0x4b, 'Simplified XLSX starts with PK signature');
+    print(`XLSX_FULL_SIMPLE_B64:${GLib.base64_encode(lastCreatedBlob.parts[0])}`);
+
+    const btnXlsxFull = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Descargar Excel completo (.xlsx)');
+    assert(btnXlsxFull, 'Complete Excel download button exists');
+    btnXlsxFull.click();
+    await flush(80);
+    assert(lastCreatedBlob && lastCreatedBlob.parts?.[0]?.[0] === 0x50 && lastCreatedBlob.parts[0][1] === 0x4b, 'Complete XLSX starts with PK signature');
+    print(`XLSX_COMPLETE_B64:${GLib.base64_encode(lastCreatedBlob.parts[0])}`);
+
+    const btnCsv = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Descargar CSV');
     assert(btnCsv, 'CSV download button exists');
     btnCsv.click();
     await flush(80);
@@ -563,7 +584,7 @@ async function runScenario() {
 
     await nav('territorio');
     const terrText = mainEl.textContent;
-    for (const loc of ['Osorno', 'Río Negro', 'San Pablo', 'Purranque']) {
+    for (const loc of ['Osorno', 'Río Negro', 'San Pablo', 'Purranque', 'Francke', 'Ovejería']) {
       assert(terrText.includes(loc), `Territorio includes ${loc}`);
     }
 
@@ -574,6 +595,12 @@ async function runScenario() {
     await flush(320);
     assert(mainEl.textContent.includes('Eduardo Javier'), 'Personas search finds imported person from KML');
     assert(!mainEl.textContent.includes('Historial de seguimientos'), 'Personas view omits seguimientos');
+    const btnLiveSimple = mainEl.querySelectorAll('button').find((b) => b.textContent === 'Descargar Excel simple');
+    assert(btnLiveSimple, 'Live Personas view includes Descargar Excel simple button');
+    btnLiveSimple.click();
+    await flush(80);
+    assert(lastCreatedBlob && lastCreatedBlob.parts?.[0]?.[0] === 0x50 && lastCreatedBlob.parts[0][1] === 0x4b, 'Live filtered simplified Excel is valid PK zip binary');
+    print(`XLSX_LIVE_SIMPLE_B64:${GLib.base64_encode(lastCreatedBlob.parts[0])}`);
 
     await nav('mapa');
     const mapText = mainEl.textContent;

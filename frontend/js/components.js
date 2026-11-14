@@ -8,6 +8,7 @@ import {
   buildGoogleMapsUrl,
   clearNode,
   createBadge,
+  downloadBlob,
   el,
   formatDate,
   formatDateTime,
@@ -17,6 +18,53 @@ import {
   hasCoords,
   triBoolLabel,
 } from './utils.js';
+
+const EXPORT_FORMAT_META = {
+  xlsx_simple: {
+    prefix: 'senasconecta_directorio_simple',
+    ext: 'xlsx',
+    label: 'Excel simplificado (.xlsx)',
+  },
+  xlsx: {
+    prefix: 'senasconecta_completo',
+    ext: 'xlsx',
+    label: 'Excel completo (.xlsx)',
+  },
+  json: {
+    prefix: 'senasconecta_respaldo',
+    ext: 'json',
+    label: 'respaldo JSON',
+  },
+  csv: {
+    prefix: 'senasconecta_personas',
+    ext: 'csv',
+    label: 'planilla CSV',
+  },
+};
+
+export async function downloadExportFile(formato = 'xlsx_simple', filters = {}) {
+  const meta = EXPORT_FORMAT_META[formato] || EXPORT_FORMAT_META.csv;
+  try {
+    const params = new URLSearchParams();
+    params.set('formato', formato);
+    for (const key of ['q', 'localidad_id', 'sector', 'estado', 'usa_lsch', 'sort', 'order']) {
+      const value = filters?.[key];
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        params.set(key, String(value));
+      }
+    }
+    const response = await apiFetch(`/api/respaldos/exportar?${params.toString()}`, {
+      rawResponse: true,
+    });
+    const blob = await response.blob();
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlob(blob, `${meta.prefix}_${stamp}.${meta.ext}`);
+    const countNote = typeof response.count === 'number' ? ` (${response.count} registros)` : '';
+    showToast(`Descarga de ${meta.label}${countNote} generada.`, 'success');
+  } catch (err) {
+    showToast(err.message || 'No fue posible generar la descarga.', 'error');
+  }
+}
 
 let activeModalCleanup = null;
 

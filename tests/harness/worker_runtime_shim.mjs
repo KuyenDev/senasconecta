@@ -56,6 +56,12 @@ export function installWorkerGlobals() {
             ]);
           }
         }
+      } else if (init && typeof init[Symbol.iterator] === 'function') {
+        for (const pair of init) {
+          if (pair && pair.length >= 2) {
+            this._entries.push([String(pair[0]), String(pair[1])]);
+          }
+        }
       } else if (init && typeof init === 'object') {
         for (const [k, v] of Object.entries(init)) {
           this._entries.push([String(k), String(v)]);

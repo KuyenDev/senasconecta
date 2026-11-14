@@ -1,3 +1,11 @@
+import {
+  buildGoogleMapsUrl,
+  fullName,
+  getCategoryLabel,
+  triBoolLabel,
+} from './utils.js';
+import { buildXlsxBytes } from './xlsxExport.js';
+
 const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
 
 let publishedSnapshot = null;
@@ -325,6 +333,160 @@ function buildCsvExport(personas) {
   return `\uFEFF${lines.join('\r\n')}`;
 }
 
+function buildSimplifiedExcelSheets(personas, categorias) {
+  const headers = [
+    'Nombre',
+    'Localidad',
+    'Sector',
+    'Calle / Dirección',
+    'Usa LSCh',
+    'Medio de comunicación',
+    'Necesita interpretación',
+    'Estado',
+    'Notas',
+    'Google Maps',
+  ];
+
+  const rows = [headers];
+  for (const p of personas) {
+    rows.push([
+      fullName(p),
+      p.localidad_nombre || '',
+      p.sector || '',
+      p.direccion || '',
+      triBoolLabel(p.usa_lsch, 'Por confirmar'),
+      p.medio_comunicacion
+        ? getCategoryLabel(categorias, 'medio_comunicacion', p.medio_comunicacion, p.medio_comunicacion)
+        : '',
+      triBoolLabel(p.necesita_interpretacion, ''),
+      getCategoryLabel(categorias, 'estado_registro', p.estado, p.estado),
+      p.observaciones || '',
+      buildGoogleMapsUrl(p),
+    ]);
+  }
+  return [{ name: 'Personas', rows }];
+}
+
+function buildFullExcelSheets(personas, localidades) {
+  const personHeaders = [
+    'Codigo',
+    'Nombre',
+    'Apellido',
+    'Localidad',
+    'Sector',
+    'Direccion',
+    'Latitud',
+    'Longitud',
+    'Link Google Maps',
+    'Fecha incorporacion',
+    'Medio comunicacion',
+    'Usa LSCh',
+    'Nivel LSCh',
+    'Prefiere escrita',
+    'Necesita interpretacion',
+    'Observaciones comunicacion',
+    'Estado',
+    'Ultima visita',
+    'Observaciones',
+    'Fecha del dato',
+    'Archivo fuente',
+    'Ultima actualizacion',
+  ];
+  const personRows = [personHeaders];
+  for (const p of personas) {
+    personRows.push([
+      p.codigo_interno || '',
+      p.nombre || '',
+      p.apellido || '',
+      p.localidad_nombre || '',
+      p.sector || '',
+      p.direccion || '',
+      p.latitud ?? '',
+      p.longitud ?? '',
+      buildGoogleMapsUrl(p),
+      p.fecha_incorporacion || '',
+      p.medio_comunicacion || '',
+      triBoolLabel(p.usa_lsch, ''),
+      p.nivel_lsch || '',
+      triBoolLabel(p.prefiere_escrita, ''),
+      triBoolLabel(p.necesita_interpretacion, ''),
+      p.observaciones_comunicacion || '',
+      p.estado || '',
+      p.fecha_ultima_visita || '',
+      p.observaciones || '',
+      p.fecha_dato || '',
+      p.archivo_fuente || '',
+      p.fecha_actualizacion || '',
+    ]);
+  }
+
+  const locRows = [['Nombre', 'Region', 'Descripcion', 'Latitud', 'Longitud', 'Activa']];
+  for (const l of localidades) {
+    locRows.push([
+      l.nombre || '',
+      l.region || '',
+      l.descripcion || '',
+      l.latitud ?? '',
+      l.longitud ?? '',
+      l.activa ? 'Sí' : 'No',
+    ]);
+  }
+  return [
+    { name: 'Personas', rows: personRows },
+    { name: 'Localidades', rows: locRows },
+  ];
+}
+
+function filterAndSortPersonas(personas, params) {
+  const q = normalizeText(params.get('q'));
+  const locIdRaw = params.get('localidad_id');
+  const locId = locIdRaw ? Number(locIdRaw) : null;
+  const sectorParam = normalizeText(params.get('sector'));
+  const estado = params.get('estado') || '';
+  const usaLsch = params.get('usa_lsch') || '';
+  const sort = params.get('sort') || 'fecha_actualizacion';
+  const order = params.get('order') === 'asc' ? 'asc' : 'desc';
+
+  const filtered = personas.filter((p) => {
+    if (locId !== null && p.localidad_id !== locId) return false;
+    if (sectorParam && normalizeText(p.sector) !== sectorParam) return false;
+    if (estado && p.estado !== estado) return false;
+    if (usaLsch === '1' && p.usa_lsch !== 1) return false;
+    if (usaLsch === '0' && p.usa_lsch !== 0) return false;
+    if (usaLsch === 'null' && p.usa_lsch !== null) return false;
+    if (q) {
+      const haystack = normalizeText(
+        `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion} ${p.proxima_accion} ${p.observaciones} ${p.archivo_fuente}`
+      );
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  return [...filtered].sort((a, b) => {
+    switch (sort) {
+      case 'nombre':
+        return compareValues(a.nombre, b.nombre, order) || compareValues(a.apellido, b.apellido, order);
+      case 'apellido':
+        return compareValues(a.apellido, b.apellido, order) || compareValues(a.nombre, b.nombre, order);
+      case 'localidad':
+        return compareValues(a.localidad_nombre, b.localidad_nombre, order) || compareValues(a.nombre, b.nombre, 'asc');
+      case 'estado':
+        return compareValues(a.estado, b.estado, order) || compareValues(a.nombre, b.nombre, 'asc');
+      case 'fecha_creacion':
+        return compareValues(a.fecha_creacion, b.fecha_creacion, order) || (b.id - a.id);
+      case 'fecha_dato':
+        return compareValues(a.fecha_dato, b.fecha_dato, order) || (b.id - a.id);
+      case 'fecha_ultima_visita':
+      case 'ultima_visita':
+        return compareValues(a.fecha_ultima_visita, b.fecha_ultima_visita, order) || (b.id - a.id);
+      case 'fecha_actualizacion':
+      default:
+        return compareValues(a.fecha_actualizacion, b.fecha_actualizacion, order) || (b.id - a.id);
+    }
+  });
+}
+
 export async function queryDataEndpoint(pathWithQuery, options = {}) {
   const dataset = await getActiveDataset();
   const [rawPath, rawQuery = ''] = String(pathWithQuery).split('?');
@@ -413,55 +575,9 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
   }
 
   if (path === '/api/personas') {
-    const q = normalizeText(params.get('q'));
-    const locIdRaw = params.get('localidad_id');
-    const locId = locIdRaw ? Number(locIdRaw) : null;
-    const sectorParam = normalizeText(params.get('sector'));
-    const estado = params.get('estado') || '';
-    const usaLsch = params.get('usa_lsch') || '';
-    const sort = params.get('sort') || 'fecha_actualizacion';
-    const order = params.get('order') === 'asc' ? 'asc' : 'desc';
     const page = Math.max(1, Number(params.get('page') || 1));
     const limit = Math.min(1000, Math.max(1, Number(params.get('limit') || 25)));
-
-    let filtered = personas.filter((p) => {
-      if (locId !== null && p.localidad_id !== locId) return false;
-      if (sectorParam && normalizeText(p.sector) !== sectorParam) return false;
-      if (estado && p.estado !== estado) return false;
-      if (usaLsch === '1' && p.usa_lsch !== 1) return false;
-      if (usaLsch === '0' && p.usa_lsch !== 0) return false;
-      if (usaLsch === 'null' && p.usa_lsch !== null) return false;
-      if (q) {
-        const haystack = normalizeText(
-          `${p.codigo_interno} ${p.nombre} ${p.apellido} ${p.localidad_nombre} ${p.sector} ${p.direccion} ${p.proxima_accion} ${p.observaciones} ${p.archivo_fuente}`
-        );
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    });
-
-    filtered = [...filtered].sort((a, b) => {
-      switch (sort) {
-        case 'nombre':
-          return compareValues(a.nombre, b.nombre, order) || compareValues(a.apellido, b.apellido, order);
-        case 'apellido':
-          return compareValues(a.apellido, b.apellido, order) || compareValues(a.nombre, b.nombre, order);
-        case 'localidad':
-          return compareValues(a.localidad_nombre, b.localidad_nombre, order) || compareValues(a.nombre, b.nombre, 'asc');
-        case 'estado':
-          return compareValues(a.estado, b.estado, order) || compareValues(a.nombre, b.nombre, 'asc');
-        case 'fecha_creacion':
-          return compareValues(a.fecha_creacion, b.fecha_creacion, order) || (b.id - a.id);
-        case 'fecha_dato':
-          return compareValues(a.fecha_dato, b.fecha_dato, order) || (b.id - a.id);
-        case 'fecha_ultima_visita':
-        case 'ultima_visita':
-          return compareValues(a.fecha_ultima_visita, b.fecha_ultima_visita, order) || (b.id - a.id);
-        case 'fecha_actualizacion':
-        default:
-          return compareValues(a.fecha_actualizacion, b.fecha_actualizacion, order) || (b.id - a.id);
-      }
-    });
+    const filtered = filterAndSortPersonas(personas, params);
 
     const total = filtered.length;
     const offset = (page - 1) * limit;
@@ -547,7 +663,42 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
   }
 
   if (path === '/api/respaldos/exportar') {
-    const formato = params.get('formato') === 'json' ? 'json' : 'csv';
+    const rawFormato = params.get('formato');
+    const formato = ['json', 'csv', 'xlsx', 'xlsx_simple'].includes(rawFormato) ? rawFormato : 'csv';
+    const exportParams = new URLSearchParams(rawQuery);
+    if (formato === 'xlsx_simple' && !exportParams.get('sort')) {
+      exportParams.set('sort', 'localidad');
+      exportParams.set('order', 'asc');
+    }
+    const hasFilterOrSort = ['q', 'localidad_id', 'sector', 'estado', 'usa_lsch', 'sort'].some((key) =>
+      Boolean(exportParams.get(key))
+    );
+    const exportPersonas = hasFilterOrSort ? filterAndSortPersonas(personas, exportParams) : personas;
+
+    if (formato === 'xlsx_simple' || formato === 'xlsx') {
+      const sheets =
+        formato === 'xlsx_simple'
+          ? buildSimplifiedExcelSheets(exportPersonas, categorias)
+          : buildFullExcelSheets(exportPersonas, localidades);
+      const bytes = buildXlsxBytes(sheets);
+      const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const blob = typeof Blob === 'function' ? new Blob([bytes], { type: mime }) : { content: bytes, type: mime };
+      if (options.rawResponse) {
+        return {
+          ok: true,
+          status: 200,
+          count: exportPersonas.length,
+          async blob() {
+            return blob;
+          },
+          async text() {
+            return '';
+          },
+        };
+      }
+      return { content: bytes, mime, count: exportPersonas.length };
+    }
+
     const content =
       formato === 'json'
         ? JSON.stringify(
@@ -562,7 +713,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
             null,
             2
           )
-        : buildCsvExport(personas);
+        : buildCsvExport(exportPersonas);
 
     const mime = formato === 'json' ? 'application/json;charset=utf-8' : 'text/csv;charset=utf-8';
     const blob = typeof Blob === 'function' ? new Blob([content], { type: mime }) : { content, type: mime };
@@ -570,6 +721,7 @@ export async function queryDataEndpoint(pathWithQuery, options = {}) {
       return {
         ok: true,
         status: 200,
+        count: formato === 'json' ? personas.length : exportPersonas.length,
         async blob() {
           return blob;
         },

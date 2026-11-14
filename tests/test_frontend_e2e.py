@@ -1,5 +1,6 @@
 """Pruebas End-to-End del frontend estático de SeñasConecta sobre HTTP real."""
 
+import base64
 import functools
 import http.server
 import os
@@ -11,6 +12,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import zipfile
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT_DIR / 'frontend'
@@ -70,12 +72,34 @@ class FrontendStaticE2ETests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
 
+    def _decode_xlsx_from_stdout(self, stdout: str, marker: str, dest_path: pathlib.Path) -> dict[str, list[list[str]]]:
+        line = next((ln for ln in stdout.splitlines() if ln.startswith(f'{marker}:')), None)
+        self.assertIsNotNone(line, f'Falta marcador {marker} en salida E2E')
+        raw_bytes = base64.b64decode(line.split(':', 1)[1].strip())
+        self.assertTrue(raw_bytes.startswith(b'PK\x03\x04'), f'{marker} no es ZIP/XLSX válido')
+        dest_path.write_bytes(raw_bytes)
+        with zipfile.ZipFile(dest_path, 'r') as zf:
+            bad = zf.testzip()
+            self.assertIsNone(bad, f'Archivo corrupto dentro de {marker}: {bad}')
+        return dict(importar_excel.read_xlsx_sheets(dest_path))
+
     def test_03_real_published_site_with_kml_markers(self):
         server, port = serve_directory(FRONTEND_DIR)
         try:
             url = f'http://127.0.0.1:{port}'
             out = self._run_e2e('live_published', url, f'{url}/index.html#dashboard')
             self.assertIn('E2E_LIVE_PUBLISHED_OK', out)
+            with tempfile.TemporaryDirectory() as tmp:
+                sheets = self._decode_xlsx_from_stdout(
+                    out,
+                    'XLSX_LIVE_SIMPLE_B64',
+                    pathlib.Path(tmp) / 'live_simple.xlsx',
+                )
+                self.assertIn('Personas', sheets)
+                rows = sheets['Personas']
+                self.assertGreaterEqual(len(rows), 2)
+                self.assertEqual(rows[0][0], 'Nombre')
+                self.assertTrue(any('Eduardo Javier' in (row[0] if row else '') for row in rows[1:]))
         finally:
             server.shutdown()
             server.server_close()
@@ -147,6 +171,51 @@ class FrontendStaticE2ETests(unittest.TestCase):
                 base_url = f'http://127.0.0.1:{port}/senasconecta'
                 out = self._run_e2e('excel_populated', base_url, f'{base_url}/#dashboard')
                 self.assertIn('E2E_EXCEL_POPULATED_OK', out)
+
+                expected_simple_headers = [
+                    'Nombre',
+                    'Localidad',
+                    'Sector',
+                    'Calle / Dirección',
+                    'Usa LSCh',
+                    'Medio de comunicación',
+                    'Necesita interpretación',
+                    'Estado',
+                    'Notas',
+                    'Google Maps',
+                ]
+
+                filtered_sheets = self._decode_xlsx_from_stdout(
+                    out,
+                    'XLSX_FILTERED_SIMPLE_B64',
+                    tmp_path / 'filtered_simple.xlsx',
+                )
+                self.assertEqual(list(filtered_sheets.keys()), ['Personas'])
+                self.assertEqual(filtered_sheets['Personas'][0], expected_simple_headers)
+                self.assertEqual(len(filtered_sheets['Personas']), 2)
+                self.assertEqual(filtered_sheets['Personas'][1][0], 'Sofía Cárdenas')
+                self.assertEqual(filtered_sheets['Personas'][1][3], 'Av. República 410')
+                self.assertEqual(filtered_sheets['Personas'][1][4], 'Sí')
+                self.assertEqual(filtered_sheets['Personas'][1][8], '=SUM(A1)')
+
+                full_simple_sheets = self._decode_xlsx_from_stdout(
+                    out,
+                    'XLSX_FULL_SIMPLE_B64',
+                    tmp_path / 'full_simple.xlsx',
+                )
+                self.assertEqual(full_simple_sheets['Personas'][0], expected_simple_headers)
+                self.assertEqual(len(full_simple_sheets['Personas']), 3)
+                self.assertEqual(full_simple_sheets['Personas'][1][1], 'Osorno')
+                self.assertEqual(full_simple_sheets['Personas'][2][1], 'Río Negro')
+
+                complete_sheets = self._decode_xlsx_from_stdout(
+                    out,
+                    'XLSX_COMPLETE_B64',
+                    tmp_path / 'complete_export.xlsx',
+                )
+                self.assertIn('Personas', complete_sheets)
+                self.assertIn('Localidades', complete_sheets)
+                self.assertEqual(len(complete_sheets['Personas']), 3)
             finally:
                 server.shutdown()
                 server.server_close()

@@ -180,7 +180,7 @@ export async function renderTerritorioView(container, { navigateTo }) {
                           ? el(
                               'div',
                               { className: 'chip-group' },
-                              l.sectores.slice(0, 4).map((s) => createBadge(`${s.nombre} (${s.total})`, 'badge-neutral'))
+                              l.sectores.map((s) => createBadge(`${s.nombre} (${s.total})`, 'badge-neutral'))
                             )
                           : el('span', { className: 'field-hint', text: 'Sin sectores' })
                       ),

@@ -3,28 +3,12 @@
  */
 
 import {
-  apiFetch,
   previewLocalJsonBackup,
   restorePublishedJsonData,
 } from '../api.js';
-import { showToast } from '../components.js';
+import { downloadExportFile, showToast } from '../components.js';
 import { state } from '../state.js';
-import { clearNode, downloadBlob, el, formatDate, formatDateTime } from '../utils.js';
-
-async function triggerDownload(formato) {
-  try {
-    const res = await apiFetch(`/api/respaldos/exportar?formato=${encodeURIComponent(formato)}`, {
-      rawResponse: true,
-    });
-    const blob = await res.blob();
-    const stamp = new Date().toISOString().slice(0, 10);
-    const filename = formato === 'csv' ? `senasconecta_personas_${stamp}.csv` : `senasconecta_respaldo_${stamp}.json`;
-    downloadBlob(blob, filename);
-    showToast(`Descarga ${formato.toUpperCase()} generada correctamente.`, 'success');
-  } catch (err) {
-    showToast(err.message || 'No se pudo generar la exportación.', 'error');
-  }
-}
+import { clearNode, el, formatDate, formatDateTime } from '../utils.js';
 
 export async function renderRespaldosView(container, { navigateTo, refreshMetaUi } = {}) {
   clearNode(container);
@@ -32,18 +16,32 @@ export async function renderRespaldosView(container, { navigateTo, refreshMetaUi
   const meta = state.meta || {};
   const totales = meta.totales || {};
 
-  const btnCsv = el('button', {
+  const btnXlsxSimple = el('button', {
     type: 'button',
     className: 'btn btn-primary',
-    text: 'Descargar CSV (Excel)',
-    onClick: () => triggerDownload('csv'),
+    text: 'Descargar Excel simplificado (.xlsx)',
+    onClick: () => downloadExportFile('xlsx_simple'),
+  });
+
+  const btnXlsxFull = el('button', {
+    type: 'button',
+    className: 'btn btn-secondary',
+    text: 'Descargar Excel completo (.xlsx)',
+    onClick: () => downloadExportFile('xlsx'),
+  });
+
+  const btnCsv = el('button', {
+    type: 'button',
+    className: 'btn btn-outline',
+    text: 'Descargar CSV',
+    onClick: () => downloadExportFile('csv'),
   });
 
   const btnJson = el('button', {
     type: 'button',
     className: 'btn btn-outline',
     text: 'Descargar base JSON',
-    onClick: () => triggerDownload('json'),
+    onClick: () => downloadExportFile('json'),
   });
 
   const exportCard = el(
@@ -58,17 +56,24 @@ export async function renderRespaldosView(container, { navigateTo, refreshMetaUi
         el('h2', { className: 'card-title', text: 'Exportar datos' }),
         el('p', {
           className: 'card-subtitle',
-          text: 'Descarga los registros publicados en planilla CSV para Excel o como archivo JSON completo.',
+          text: 'Descarga un directorio Excel simplificado listo para compartir o la planilla completa de respaldo.',
         })
       )
     ),
     el(
       'div',
       { className: 'card-body', style: { display: 'grid', gap: '14px' } },
-      el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap' } }, btnCsv, btnJson),
+      el(
+        'div',
+        { style: { display: 'flex', gap: '10px', flexWrap: 'wrap' } },
+        btnXlsxSimple,
+        btnXlsxFull,
+        btnCsv,
+        btnJson
+      ),
       el('p', {
         className: 'field-hint',
-        text: 'El archivo CSV incluye codificación UTF-8 con BOM y protección contra inyección de fórmulas al abrirlo en Excel o LibreOffice Calc.',
+        text: 'El Excel simplificado incluye solo los datos básicos (nombre, localidad, sector, calle, uso de LSCh, medio, interpretación, estado, notas y enlace de Google Maps). El Excel completo agrega todas las columnas técnicas y la hoja de localidades.',
       })
     )
   );
